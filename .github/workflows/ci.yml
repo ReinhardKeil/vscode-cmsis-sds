@@ -71,30 +71,6 @@ jobs:
         with:
           path: artifacts
 
-      - name: Vitest Report (Ubuntu)
-        if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: 'Unit & Integration Tests (ubuntu)'
-          path: artifacts/test-results-ubuntu-latest/vitest-report.xml
-          reporter: java-junit
-
-      - name: Vitest Report (macOS)
-        if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: 'Unit & Integration Tests (macos)'
-          path: artifacts/test-results-macos-latest/vitest-report.xml
-          reporter: java-junit
-
-      - name: Vitest Report (Windows)
-        if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: 'Unit & Integration Tests (windows)'
-          path: artifacts/test-results-windows-latest/vitest-report.xml
-          reporter: java-junit
-
       - name: Playwright Report (Ubuntu)
         if: always()
         uses: dorny/test-reporter@v1
