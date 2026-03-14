@@ -5,6 +5,9 @@ export default defineConfig({
     testMatch: '**/*.spec.ts',
     timeout: 15000,
     retries: 0,
+    reporter: process.env.CI
+        ? [['list'], ['junit', { outputFile: 'test-results/playwright-report.xml' }]]
+        : [['list']],
     use: {
         headless: true,
         viewport: { width: 1024, height: 768 },
