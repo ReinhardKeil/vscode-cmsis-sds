@@ -1,0 +1,150 @@
+{
+  "SDS Sensor Metadata": {
+    "prefix": "sds-sensor",
+    "description": "SDS metadata for a sensor stream (accelerometer, gyroscope, etc.)",
+    "body": [
+      "sds:",
+      "  name: ${1:accelerometer}",
+      "  description: ${2:3-axis accelerometer data}",
+      "  frequency: ${3:100}",
+      "  tick-frequency: ${4:1000}",
+      "  content:",
+      "    - value: ${5:x}",
+      "      type: ${6|int16_t,uint16_t,int32_t,uint32_t,float,double,uint8_t,int8_t|}",
+      "      scale: ${7:0.001}",
+      "      offset: ${8:0}",
+      "      unit: ${9:G}",
+      "    - value: ${10:y}",
+      "      type: ${6}",
+      "      scale: ${7}",
+      "      offset: ${8}",
+      "      unit: ${9}",
+      "    - value: ${11:z}",
+      "      type: ${6}",
+      "      scale: ${7}",
+      "      offset: ${8}",
+      "      unit: ${9}"
+    ]
+  },
+  "SDS Image Metadata": {
+    "prefix": "sds-image",
+    "description": "SDS metadata for an image/camera stream",
+    "body": [
+      "sds:",
+      "  name: ${1:camera}",
+      "  description: ${2:Camera image stream}",
+      "  frequency: ${3:30}",
+      "  tick-frequency: ${4:1000}",
+      "  content:",
+      "    - value: ${5:frame}",
+      "      type: uint8_t",
+      "      image:",
+      "        pixel_format: ${6|RGB888,RAW8,RGB565,NV12,NV21,I420,YUYV|}",
+      "        width: ${7:320}",
+      "        height: ${8:240}"
+    ]
+  },
+  "SDS Audio Metadata": {
+    "prefix": "sds-audio",
+    "description": "SDS metadata for an audio/microphone stream",
+    "body": [
+      "sds:",
+      "  name: ${1:microphone}",
+      "  description: ${2:Audio capture stream}",
+      "  frequency: ${3:44100}",
+      "  tick-frequency: ${4:1000}",
+      "  content:",
+      "    - value: ${5:audio}",
+      "      type: int16_t",
+      "      audio:",
+      "        sample_rate: ${6:44100}",
+      "        bit_depth: ${7|16,8,24,32|}",
+      "        audio_channels: ${8|1,2|}",
+      "        codec: ${9:pcm}"
+    ]
+  },
+  "SDS Video Metadata": {
+    "prefix": "sds-video",
+    "description": "SDS metadata for a video stream",
+    "body": [
+      "sds:",
+      "  name: ${1:video}",
+      "  description: ${2:Video capture stream}",
+      "  frequency: ${3:30}",
+      "  tick-frequency: ${4:1000}",
+      "  content:",
+      "    - value: ${5:frame}",
+      "      type: uint8_t",
+      "      video:",
+      "        pixel_format: ${6|RGB888,NV12,YUYV|}",
+      "        width: ${7:640}",
+      "        height: ${8:480}",
+      "        fps: ${9:30}",
+      "        codec: ${10:raw}"
+    ]
+  },
+  "SDS Content Channel": {
+    "prefix": "sds-channel",
+    "description": "Add a content channel to SDS metadata",
+    "body": [
+      "    - value: ${1:channel_name}",
+      "      type: ${2|int16_t,uint16_t,int32_t,uint32_t,float,double,uint8_t,int8_t|}",
+      "      scale: ${3:1.0}",
+      "      offset: ${4:0}",
+      "      unit: ${5:units}"
+    ]
+  },
+  "SDS Temperature Sensor": {
+    "prefix": "sds-temperature",
+    "description": "SDS metadata for a temperature sensor",
+    "body": [
+      "sds:",
+      "  name: ${1:temperature}",
+      "  description: ${2:Temperature sensor data}",
+      "  frequency: ${3:10}",
+      "  tick-frequency: ${4:1000}",
+      "  content:",
+      "    - value: ${5:temperature}",
+      "      type: ${6|float,int16_t,uint16_t|}",
+      "      scale: ${7:0.01}",
+      "      offset: ${8:0}",
+      "      unit: ${9:°C}"
+    ]
+  },
+  "SDS IMU 6-Axis": {
+    "prefix": "sds-imu",
+    "description": "SDS metadata for 6-axis IMU (accelerometer + gyroscope)",
+    "body": [
+      "sds:",
+      "  name: ${1:imu}",
+      "  description: ${2:6-axis IMU (accel + gyro)}",
+      "  frequency: ${3:100}",
+      "  tick-frequency: ${4:1000}",
+      "  content:",
+      "    - value: accel_x",
+      "      type: int16_t",
+      "      scale: 0.001",
+      "      unit: G",
+      "    - value: accel_y",
+      "      type: int16_t",
+      "      scale: 0.001",
+      "      unit: G",
+      "    - value: accel_z",
+      "      type: int16_t",
+      "      scale: 0.001",
+      "      unit: G",
+      "    - value: gyro_x",
+      "      type: int16_t",
+      "      scale: 0.01",
+      "      unit: dps",
+      "    - value: gyro_y",
+      "      type: int16_t",
+      "      scale: 0.01",
+      "      unit: dps",
+      "    - value: gyro_z",
+      "      type: int16_t",
+      "      scale: 0.01",
+      "      unit: dps"
+    ]
+  }
+}

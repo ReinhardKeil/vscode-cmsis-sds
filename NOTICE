@@ -1,0 +1,21 @@
+CMSIS SDS — Third-Party Notices
+================================
+
+This software includes the following third-party components:
+
+libusb
+------
+Copyright (C) 2001 Johannes Erdfelt <johannes@erdfelt.com>
+Copyright (C) 2007-2009 Daniel Drake <dsd@gentoo.org>
+Copyright (C) 2010-2012 Peter Stuge <peter@stuge.se>
+Copyright (C) 2008-2016 Nathan Hjelm <hjelmn@users.sourceforge.net>
+Copyright (C) 2009-2013 Pete Batard <pete@akeo.ie>
+Copyright (C) 2007-2024 libusb contributors
+
+License: LGPL-2.1-or-later
+https://github.com/libusb/libusb
+
+libusb is used via the `usb` npm package as a dynamically linked
+native addon. In accordance with LGPL §6, users may relink against
+a modified version of libusb by rebuilding the native addon with
+`npm rebuild usb`.
