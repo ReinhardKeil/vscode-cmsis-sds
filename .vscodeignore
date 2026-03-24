@@ -20,3 +20,13 @@ package-lock.json
 **/*.map
 **/*.d.ts
 *.vsix
+.github/**
+node_modules/**
+.vscode-test/**
+.vscodeignore
+test-results/**
+coverage/**
+*.log
+*.tmp
+*.bak
+
