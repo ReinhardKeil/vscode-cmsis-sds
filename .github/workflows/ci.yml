@@ -52,6 +52,13 @@ jobs:
           path: test-results/
           retention-days: 30
 
+      - name: Upload VSIX package
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: vscode-cmsis-sds
+          path: ./*.vsix
+          retention-days: 1
+
   test-report:
     name: Test Report
     needs: build-and-test

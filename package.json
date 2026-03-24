@@ -6,7 +6,9 @@
   "publisher": "open-cmsis",
   "license": "Apache-2.0",
   "engines": {
-    "vscode": "^1.85.0"
+    "node": "^22.22.0",
+    "npm": "^10.0.0",
+    "vscode": "^1.108.1"
   },
   "categories": [
     "Visualization",
@@ -34,27 +36,96 @@
   "main": "./out/src/extension.js",
   "contributes": {
     "commands": [
-      { "command": "arm-sds.openViewer", "title": "Open SDS Viewer", "category": "SDS Tools", "icon": "$(graph-line)" },
-      { "command": "arm-sds.openRecorder", "title": "Open SDS Recorder", "category": "SDS Tools", "icon": "$(record)" },
-      { "command": "arm-sds.openMediaViewer", "title": "Open Media Viewer", "category": "SDS Tools", "icon": "$(preview)" },
-      { "command": "arm-sds.exportCsv", "title": "Export SDS to CSV", "category": "SDS Tools", "icon": "$(export)" },
-      { "command": "arm-sds.refreshExplorer", "title": "Refresh SDS Explorer", "category": "SDS Tools", "icon": "$(refresh)" },
-      { "command": "arm-sds.newRecording", "title": "New SDS Recording", "category": "SDS Tools", "icon": "$(add)" },
-      { "command": "arm-sds.initWorkspace", "title": "Initialize SDS Workspace", "category": "SDS Tools", "icon": "$(folder-opened)" },
-      { "command": "arm-sds.deleteFile", "title": "Delete SDS File", "category": "SDS Tools", "icon": "$(trash)" },
-      { "command": "arm-sds.createMetadata", "title": "Create / Edit Metadata (YAML)", "category": "SDS Tools", "icon": "$(file-add)" },
-      { "command": "arm-sds.showDiagnostics", "title": "Show Diagnostics", "category": "SDS Tools", "icon": "$(output)" },
-      { "command": "arm-sds.clearDiagnostics", "title": "Clear Diagnostics Log", "category": "SDS Tools", "icon": "$(clear-all)" },
-      { "command": "arm-sds.quickOpen", "title": "Quick Open SDS File", "category": "SDS Tools", "icon": "$(zap)" }
+      {
+        "command": "arm-sds.openViewer",
+        "title": "Open SDS Viewer",
+        "category": "SDS Tools",
+        "icon": "$(graph-line)"
+      },
+      {
+        "command": "arm-sds.openRecorder",
+        "title": "Open SDS Recorder",
+        "category": "SDS Tools",
+        "icon": "$(record)"
+      },
+      {
+        "command": "arm-sds.openMediaViewer",
+        "title": "Open Media Viewer",
+        "category": "SDS Tools",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "arm-sds.exportCsv",
+        "title": "Export SDS to CSV",
+        "category": "SDS Tools",
+        "icon": "$(export)"
+      },
+      {
+        "command": "arm-sds.refreshExplorer",
+        "title": "Refresh SDS Explorer",
+        "category": "SDS Tools",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "arm-sds.newRecording",
+        "title": "New SDS Recording",
+        "category": "SDS Tools",
+        "icon": "$(add)"
+      },
+      {
+        "command": "arm-sds.initWorkspace",
+        "title": "Initialize SDS Workspace",
+        "category": "SDS Tools",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "arm-sds.deleteFile",
+        "title": "Delete SDS File",
+        "category": "SDS Tools",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "arm-sds.createMetadata",
+        "title": "Create / Edit Metadata (YAML)",
+        "category": "SDS Tools",
+        "icon": "$(file-add)"
+      },
+      {
+        "command": "arm-sds.showDiagnostics",
+        "title": "Show Diagnostics",
+        "category": "SDS Tools",
+        "icon": "$(output)"
+      },
+      {
+        "command": "arm-sds.clearDiagnostics",
+        "title": "Clear Diagnostics Log",
+        "category": "SDS Tools",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "arm-sds.quickOpen",
+        "title": "Quick Open SDS File",
+        "category": "SDS Tools",
+        "icon": "$(zap)"
+      }
     ],
     "viewsContainers": {
       "activitybar": [
-        { "id": "arm-sds-explorer", "title": "SDS Tools", "icon": "media/sds-icon.svg" }
+        {
+          "id": "arm-sds-explorer",
+          "title": "SDS Tools",
+          "icon": "media/sds-icon.svg"
+        }
       ]
     },
     "views": {
       "arm-sds-explorer": [
-        { "id": "sdsExplorer", "name": "SDS Files", "icon": "$(graph-line)", "contextualTitle": "SDS Explorer" }
+        {
+          "id": "sdsExplorer",
+          "name": "SDS Files",
+          "icon": "$(graph-line)",
+          "contextualTitle": "SDS Explorer"
+        }
       ]
     },
     "viewsWelcome": [
@@ -65,51 +136,144 @@
     ],
     "menus": {
       "view/title": [
-        { "command": "arm-sds.refreshExplorer", "when": "view == sdsExplorer", "group": "navigation" },
-        { "command": "arm-sds.newRecording", "when": "view == sdsExplorer", "group": "navigation" }
+        {
+          "command": "arm-sds.refreshExplorer",
+          "when": "view == sdsExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "arm-sds.newRecording",
+          "when": "view == sdsExplorer",
+          "group": "navigation"
+        }
       ],
       "view/item/context": [
-        { "command": "arm-sds.openViewer", "when": "view == sdsExplorer && viewItem == sdsFile", "group": "inline" },
-        { "command": "arm-sds.openMediaViewer", "when": "view == sdsExplorer && viewItem == sdsFile", "group": "1_view" },
-        { "command": "arm-sds.createMetadata", "when": "view == sdsExplorer && viewItem == sdsFile", "group": "1_view" },
-        { "command": "arm-sds.exportCsv", "when": "view == sdsExplorer && viewItem == sdsFile", "group": "2_export" },
-        { "command": "arm-sds.deleteFile", "when": "view == sdsExplorer && viewItem == sdsFile", "group": "3_danger" }
+        {
+          "command": "arm-sds.openViewer",
+          "when": "view == sdsExplorer && viewItem == sdsFile",
+          "group": "inline"
+        },
+        {
+          "command": "arm-sds.openMediaViewer",
+          "when": "view == sdsExplorer && viewItem == sdsFile",
+          "group": "1_view"
+        },
+        {
+          "command": "arm-sds.createMetadata",
+          "when": "view == sdsExplorer && viewItem == sdsFile",
+          "group": "1_view"
+        },
+        {
+          "command": "arm-sds.exportCsv",
+          "when": "view == sdsExplorer && viewItem == sdsFile",
+          "group": "2_export"
+        },
+        {
+          "command": "arm-sds.deleteFile",
+          "when": "view == sdsExplorer && viewItem == sdsFile",
+          "group": "3_danger"
+        }
       ],
       "explorer/context": [
-        { "command": "arm-sds.openViewer", "when": "resourceExtname == .sds", "group": "navigation" },
-        { "command": "arm-sds.openMediaViewer", "when": "resourceExtname == .sds", "group": "navigation" },
-        { "command": "arm-sds.createMetadata", "when": "resourceExtname == .sds", "group": "navigation" }
+        {
+          "command": "arm-sds.openViewer",
+          "when": "resourceExtname == .sds",
+          "group": "navigation"
+        },
+        {
+          "command": "arm-sds.openMediaViewer",
+          "when": "resourceExtname == .sds",
+          "group": "navigation"
+        },
+        {
+          "command": "arm-sds.createMetadata",
+          "when": "resourceExtname == .sds",
+          "group": "navigation"
+        }
       ],
       "commandPalette": [
-        { "command": "arm-sds.deleteFile", "when": "false" }
+        {
+          "command": "arm-sds.deleteFile",
+          "when": "false"
+        }
       ]
     },
     "languages": [
       {
         "id": "sds-config",
-        "aliases": ["SDS Configuration"],
-        "extensions": [".sds.yml"],
+        "aliases": [
+          "SDS Configuration"
+        ],
+        "extensions": [
+          ".sds.yml"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
     "configuration": {
       "title": "SDS Tools",
       "properties": {
-        "arm-sds.recorder.serialPort": { "type": "string", "default": "", "description": "Default serial port for SDS recording" },
-        "arm-sds.recorder.baudRate": { "type": "number", "default": 115200, "description": "Baud rate for serial communication" },
-        "arm-sds.recorder.outputDirectory": { "type": "string", "default": "./sds_recordings", "description": "Default output directory for recordings (relative to workspace root)" },
-        "arm-sds.viewer.defaultZoomLevel": { "type": "number", "default": 1, "description": "Default zoom level for the waveform viewer" },
-        "arm-sds.viewer.colorScheme": { "type": "string", "default": "auto", "enum": ["auto", "dark", "light"], "description": "Color scheme for the waveform viewer" }
+        "arm-sds.recorder.serialPort": {
+          "type": "string",
+          "default": "",
+          "description": "Default serial port for SDS recording"
+        },
+        "arm-sds.recorder.baudRate": {
+          "type": "number",
+          "default": 115200,
+          "description": "Baud rate for serial communication"
+        },
+        "arm-sds.recorder.outputDirectory": {
+          "type": "string",
+          "default": "./sds_recordings",
+          "description": "Default output directory for recordings (relative to workspace root)"
+        },
+        "arm-sds.viewer.defaultZoomLevel": {
+          "type": "number",
+          "default": 1,
+          "description": "Default zoom level for the waveform viewer"
+        },
+        "arm-sds.viewer.colorScheme": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "dark",
+            "light"
+          ],
+          "description": "Color scheme for the waveform viewer"
+        }
       }
     },
     "keybindings": [
-      { "command": "arm-sds.openViewer", "key": "ctrl+shift+v", "mac": "cmd+shift+v", "when": "resourceExtname == .sds" },
-      { "command": "arm-sds.openRecorder", "key": "ctrl+shift+r", "mac": "cmd+shift+r", "when": "sdsExplorer.active" },
-      { "command": "arm-sds.quickOpen", "key": "ctrl+shift+s", "mac": "cmd+shift+s", "when": "workbenchState != empty" }
+      {
+        "command": "arm-sds.openViewer",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "resourceExtname == .sds"
+      },
+      {
+        "command": "arm-sds.openRecorder",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "sdsExplorer.active"
+      },
+      {
+        "command": "arm-sds.quickOpen",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "workbenchState != empty"
+      }
     ],
     "snippets": [
-      { "language": "sds-config", "path": "./snippets/sds-metadata.json" },
-      { "language": "yaml", "path": "./snippets/sds-metadata.json" }
+      {
+        "language": "sds-config",
+        "path": "./snippets/sds-metadata.json"
+      },
+      {
+        "language": "yaml",
+        "path": "./snippets/sds-metadata.json"
+      }
     ]
   },
   "scripts": {
@@ -117,22 +281,23 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
+    "test": "vitest run test/unit && vitest run test/integration",
     "test:unit": "vitest run test/unit",
     "test:integration": "vitest run test/integration",
     "test:e2e": "playwright test",
     "package": "vsce package --allow-missing-repository --baseContentUrl ."
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.0",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "@typescript-eslint/parser": "^8.57.2",
     "@vscode/vsce": "^2.19.0",
-    "@playwright/test": "^1.58.0",
     "esbuild": "^0.27.3",
-    "eslint": "^8.56.0",
-    "typescript": "^5.3.3",
-    "vitest": "^2.1.0"
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8"
   },
   "dependencies": {
     "serialport": "^13.0.0",
