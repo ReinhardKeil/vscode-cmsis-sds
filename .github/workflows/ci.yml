@@ -76,14 +76,14 @@ jobs:
           retention-days: 1
 
   test-report:
-    name: Test Report
-    needs: build-and-test
-    runs-on: ubuntu-latest
+    name: 'Test Report (${{ matrix.target }})'
+    needs: [ build-and-test ]
+    runs-on: ${{ matrix.platform }}
     if: always()
     permissions:
-      contents: read
-      checks: write
-      pull-requests: write
+      contents: write
+      packages: read
+      actions: read
 
     steps:
       - uses: actions/checkout@c2d88d3ecc89a9ef08eebf45d9637801dcee7eb5 # v4.3.1
