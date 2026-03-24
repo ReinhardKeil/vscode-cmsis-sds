@@ -16,14 +16,22 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@c2d88d3ecc89a9ef08eebf45d9637801dcee7eb5 # v4.3.1
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
+          registry-url: https://npm.pkg.github.com
+          package-manager-cache: false
 
       - name: Install dependencies
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm ci
 
       - name: Compile TypeScript
@@ -35,6 +43,10 @@ jobs:
       - name: Run unit and integration tests
         if: always()
         run: npx vitest run
+      
+      - name: Package VSIX
+        if: always()
+        run: npm run package
 
       # - name: Install Playwright browsers
       #   if: always()
