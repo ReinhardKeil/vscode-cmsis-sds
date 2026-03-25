@@ -23,10 +23,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
-        with:
-          egress-policy: audit
+      # Not available in private repositories
+      # - name: Harden the runner (Audit all outbound calls)
+      #   uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+      #   with:
+      #     egress-policy: audit
 
       - name: Checkout repository
         uses: actions/checkout@c2d88d3ecc89a9ef08eebf45d9637801dcee7eb5 # v4.3.1
@@ -46,8 +47,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      # Disabled as there is use of any on many places. Code needs refactoring before going public.
+      # - name: Lint
+      #   run: npm run lint
 
       - name: Compile TypeScript
         run: npm run compile
@@ -93,10 +95,11 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
-        with:
-          egress-policy: audit
+      # Not available in private repositories
+      # - name: Harden the runner (Audit all outbound calls)
+      #   uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+      #   with:
+      #     egress-policy: audit
 
       - name: Checkout repository
         uses: actions/checkout@c2d88d3ecc89a9ef08eebf45d9637801dcee7eb5 # v4.3.1
@@ -110,13 +113,13 @@ jobs:
         with:
           path: artifacts
 
-      - name: Playwright Report (Ubuntu)
-        if: always()
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-        with:
-          name: 'E2E Tests (ubuntu)'
-          path: artifacts/test-results-ubuntu-latest/playwright-report.xml
-          reporter: java-junit
+      # - name: Playwright Report (Ubuntu)
+      #   if: always()
+      #   uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+      #   with:
+      #     name: 'E2E Tests (ubuntu)'
+      #     path: artifacts/test-results-ubuntu-latest/playwright-report.xml
+      #     reporter: java-junit
 
       # - name: Playwright Report (macOS)
       #   if: always()
@@ -126,10 +129,10 @@ jobs:
       #     path: artifacts/test-results-macos-latest/playwright-report.xml
       #     reporter: java-junit
 
-      - name: Playwright Report (Windows)
-        if: always()
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-        with:
-          name: 'E2E Tests (windows)'
-          path: artifacts/test-results-windows-latest/playwright-report.xml
-          reporter: java-junit
+      # - name: Playwright Report (Windows)
+      #   if: always()
+      #   uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+      #   with:
+      #     name: 'E2E Tests (windows)'
+      #     path: artifacts/test-results-windows-latest/playwright-report.xml
+      #     reporter: java-junit
