@@ -33,6 +33,10 @@
     "onCommand:arm-sds.initWorkspace",
     "onCommand:arm-sds.showDiagnostics"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Open-CMSIS-Pack/vscode-cmsis-sds.git"
+ },
   "main": "./out/src/extension.js",
   "contributes": {
     "commands": [
@@ -94,15 +98,14 @@
         "configuration": "./language-configuration.json"
       }
     ],
-    "configuration": {
-      "title": "SDS Tools",
-      "properties": {
-        "arm-sds.recorder.serialPort": { "type": "string", "default": "", "description": "Default serial port for SDS recording" },
-        "arm-sds.recorder.baudRate": { "type": "number", "default": 115200, "description": "Baud rate for serial communication" },
-        "arm-sds.recorder.outputDirectory": { "type": "string", "default": "./sds_recordings", "description": "Default output directory for recordings (relative to workspace root)" },
-        "arm-sds.viewer.defaultZoomLevel": { "type": "number", "default": 1, "description": "Default zoom level for the waveform viewer" },
-        "arm-sds.viewer.colorScheme": { "type": "string", "default": "auto", "enum": ["auto", "dark", "light"], "description": "Color scheme for the waveform viewer" }
-      }
+    "scripts": {
+      "compile": "tsc -p .",
+      "build": "node esbuild.js --production",
+      "postbuild": "node scripts/copy-native-modules.js",
+      "package": "npm run build && npm run postbuild && vsce package",
+      "test:unit": "vitest run --config vitest.config.ts",
+      "test:integration": "vitest run --config test/e2e/vitest.integration.config.ts",
+      "test:e2e": "npx playwright test --config=playwright.config.ts --reporter=line"
     },
     "keybindings": [
       { "command": "arm-sds.openViewer", "key": "ctrl+shift+v", "mac": "cmd+shift+v", "when": "resourceExtname == .sds" },

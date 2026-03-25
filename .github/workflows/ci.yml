@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -51,12 +51,19 @@ jobs:
       # - name: Lint
       #   run: npm run lint
 
+
       - name: Compile TypeScript
         run: npm run compile
-      
-      - name: Compile TypeScript
-        run: npm run package
-      
+
+      - name: Bundle extension (esbuild)
+        run: npm run build
+
+      - name: Copy native modules (serialport, usb)
+        run: npm run postbuild
+
+      - name: Package VSIX
+        run: npx vsce package
+
       - name: Upload VSIX package
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -121,18 +128,18 @@ jobs:
           path: artifacts/test-results-ubuntu-latest/playwright-report.xml
           reporter: java-junit
 
-      # - name: Playwright Report (macOS)
-      #   if: always()
-      #   uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-      #   with:
-      #     name: 'E2E Tests (macos)'
-      #     path: artifacts/test-results-macos-latest/playwright-report.xml
-      #     reporter: java-junit
+      - name: Playwright Report (macOS)
+        if: always()
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          name: 'E2E Tests (macos)'
+          path: artifacts/test-results-macos-latest/playwright-report.xml
+          reporter: java-junit
 
-      # - name: Playwright Report (Windows)
-      #   if: always()
-      #   uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-      #   with:
-      #     name: 'E2E Tests (windows)'
-      #     path: artifacts/test-results-windows-latest/playwright-report.xml
-      #     reporter: java-junit
+      - name: Playwright Report (Windows)
+        if: always()
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          name: 'E2E Tests (windows)'
+          path: artifacts/test-results-windows-latest/playwright-report.xml
+          reporter: java-junit
