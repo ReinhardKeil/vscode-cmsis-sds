@@ -70,11 +70,11 @@ jobs:
       - name: Run integration tests
         run: npm run test:integration
 
-      # - name: Install Playwright browsers
-      #   run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
 
-      # - name: Run E2E tests
-      #   run: npm run test:e2e
+      - name: Run E2E tests
+        run: npm run test:e2e
 
       - name: Upload test results
         if: always()
@@ -113,13 +113,13 @@ jobs:
         with:
           path: artifacts
 
-      # - name: Playwright Report (Ubuntu)
-      #   if: always()
-      #   uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-      #   with:
-      #     name: 'E2E Tests (ubuntu)'
-      #     path: artifacts/test-results-ubuntu-latest/playwright-report.xml
-      #     reporter: java-junit
+      - name: Playwright Report (Ubuntu)
+        if: always()
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          name: 'E2E Tests (ubuntu)'
+          path: artifacts/test-results-ubuntu-latest/playwright-report.xml
+          reporter: java-junit
 
       # - name: Playwright Report (macOS)
       #   if: always()
