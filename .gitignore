@@ -6,3 +6,4 @@ out/
 *.log
 test/fixtures/
 test-results/
+e2e-report/

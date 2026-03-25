@@ -5,9 +5,11 @@ export default defineConfig({
     testMatch: '**/*.spec.ts',
     timeout: 15000,
     retries: 0,
-    reporter: process.env.CI
-        ? [['list'], ['junit', { outputFile: 'test-results/playwright-report.xml' }]]
-        : [['list']],
+    reporter: [
+        ['list'],
+        ['html', { outputFolder: 'e2e-report' }],
+        ['junit', { outputFile: 'e2e-report/results.xml' }],
+    ],
     use: {
         headless: true,
         viewport: { width: 1024, height: 768 },

@@ -12,6 +12,7 @@ out/src/sds/**
 out/src/studio/**
 out/src/viewer/**
 out/src/webview/**
+e2e-report/**
 esbuild.js
 .gitignore
 tsconfig.json
