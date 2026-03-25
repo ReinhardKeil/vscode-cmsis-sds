@@ -40,11 +40,6 @@ jobs:
           node-version-file: package.json
           cache: npm
 
-      - name: Check npm
-        run: |
-          npm i -g npm@10.9.4
-          npm --version
-
       - name: Install dependencies
         run: npm ci
 
