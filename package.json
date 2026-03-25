@@ -123,7 +123,7 @@
     "postbuild": "node scripts/copy-native-modules.js",
     "package": "npm run build && npm run postbuild && vsce package",
     "test:unit": "vitest run --config vitest.config.ts",
-    "test:integration": "vitest run --config test/e2e/vitest.integration.config.ts",
+    "test:integration": "vitest run --config vitest.config.ts",
     "test:e2e": "npx playwright test --config=playwright.config.ts --reporter=line"
   },
   "devDependencies": {
