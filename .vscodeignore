@@ -12,6 +12,7 @@ out/src/sds/**
 out/src/studio/**
 out/src/viewer/**
 out/src/webview/**
+e2e-report/**
 esbuild.js
 .gitignore
 tsconfig.json
@@ -20,3 +21,13 @@ package-lock.json
 **/*.map
 **/*.d.ts
 *.vsix
+.github/**
+node_modules/**
+.vscode-test/**
+.vscodeignore
+test-results/**
+coverage/**
+*.log
+*.tmp
+*.bak
+

@@ -1,96 +1,145 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   build-and-test:
+    name: Build and Test (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: [20]
-
+        include:
+          - os: ubuntu-latest
+            vsce_target: linux-x64
+          - os: windows-latest
+            vsce_target: win32-x64
+          - os: macos-latest
+            vsce_target: darwin-arm64
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      # Not available in private repositories
+      # - name: Harden the runner (Audit all outbound calls)
+      #   uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+      #   with:
+      #     egress-policy: audit
 
-      - uses: actions/setup-node@v4
+      - name: Configure git settings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          node-version: ${{ matrix.node-version }}
+          submodules: true
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: package.json
           cache: npm
+
+      - name: Clean npm cache
+        run: npm cache clean --force
 
       - name: Install dependencies
         run: npm ci
 
+      # Disabled as there is use of `any` on many places. Code needs refactoring before going public.
+      # - name: Lint
+      #   run: npm run lint
+
       - name: Compile TypeScript
         run: npm run compile
 
-      - name: Lint
-        run: npm run lint
+      - name: Bundle extension (esbuild)
+        run: npm run build
 
-      - name: Run unit and integration tests
-        if: always()
-        run: npx vitest run
+      - name: Copy native modules (serialport, usb)
+        run: npm run postbuild
+
+      - name: Update current version
+        run: |
+          # Increment patch version by 1 (e.g. 1.64.1 -> 1.64.2)
+          BASE_VERSION=$(node -p "require('./package.json').version.split('-')[0]")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+          if [ -z "$MAJOR" ] || [ -z "$MINOR" ] || [ -z "$PATCH" ]; then
+            echo "Invalid semver: $BASE_VERSION"
+            exit 1
+          fi
+          if ! [[ "$MAJOR" =~ ^[0-9]+$ && "$MINOR" =~ ^[0-9]+$ && "$PATCH" =~ ^[0-9]+$ ]]; then
+            echo "Invalid semver components (non-numeric): $BASE_VERSION (MAJOR=$MAJOR, MINOR=$MINOR, PATCH=$PATCH)"
+            exit 1
+          fi
+          NEXT_PATCH_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+          # Get commit count: since last tag if exists, otherwise total commits
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMIT_COUNT=$(git rev-list --count HEAD ^${LAST_TAG})
+          else
+            COMMIT_COUNT=$(git rev-list --count HEAD)
+          fi
+
+          # Get short commit SHA
+          SHORT_SHA=$(git rev-parse --short HEAD)
+
+          # Create nightly version: 1.64.2-12-abc1234
+          NIGHTLY_VERSION="${NEXT_PATCH_VERSION}-${COMMIT_COUNT}-${SHORT_SHA}"
+          echo "Setting version to ${NIGHTLY_VERSION}"
+
+          # Update package.json
+          npm version "${NIGHTLY_VERSION}" --no-git-tag-version
+
+      - name: Package VSIX
+        run: npm run package -- --target ${{ matrix.vsce_target }}
+
+      - name: Upload VSIX package
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: vscode-cmsis-sds-${{ matrix.vsce_target }}
+          path: ./*.vsix
+          retention-days: 1
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run integration tests
+        run: npm run test:integration
 
       - name: Install Playwright browsers
-        if: always()
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
-        if: always()
         run: npm run test:e2e
 
-      - name: Upload test results
+      - name: Playwright Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         with:
-          name: test-results-${{ matrix.os }}
-          path: test-results/
-          retention-days: 30
-
-  test-report:
-    name: Test Report
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: always()
-    permissions:
-      contents: read
-      checks: write
-      pull-requests: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download all test results
-        if: always()
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Playwright Report (Ubuntu)
-        if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: 'E2E Tests (ubuntu)'
-          path: artifacts/test-results-ubuntu-latest/playwright-report.xml
+          name: E2E Tests ${{ matrix.vsce_target }}
+          path: e2e-report/results.xml
           reporter: java-junit
 
-      - name: Playwright Report (macOS)
+      - name: Upload E2E HTML report
         if: always()
-        uses: dorny/test-reporter@v1
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: 'E2E Tests (macos)'
-          path: artifacts/test-results-macos-latest/playwright-report.xml
-          reporter: java-junit
-
-      - name: Playwright Report (Windows)
-        if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: 'E2E Tests (windows)'
-          path: artifacts/test-results-windows-latest/playwright-report.xml
-          reporter: java-junit
+          name: e2e-report-${{ matrix.vsce_target }}
+          path: e2e-report
