@@ -9,6 +9,8 @@ on:
     paths-ignore:
       - '**/*.md'
       - '.github/ISSUE_TEMPLATE/**'
+  release:
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -143,3 +145,28 @@ jobs:
         with:
           name: e2e-report-${{ matrix.vsce_target }}
           path: e2e-report
+
+  publish:
+    name: Publish release
+    runs-on: [ubuntu-latest]
+    if: github.event_name == 'release'
+    needs: [ build-and-test ]
+    permissions:
+      contents: write
+    steps:
+      # Not available in private repositories
+      # - name: Harden the runner (Audit all outbound calls)
+      #   uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+      #   with:
+      #     egress-policy: audit
+
+      - name: Download packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: vscode-cmsis-sds-*
+
+      - name: Attach packages
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        with:
+          files: |
+            **/*.vsix
