@@ -373,6 +373,7 @@
         "build": "node esbuild.js --production",
         "postbuild": "node scripts/copy-native-modules.js",
         "package": "npm run build && npm run postbuild && vsce package",
+        "lint:md": "markdownlint **/*.md -c ./.github/markdownlint.jsonc -i ./node_modules -i ./dist -i ./coverage -i ./out -i ./tools -i ./test-data -i ./src/e2e-tests/data -i CHANGELOG.md",
         "test": "npm-run-all test:unit test:integration test:e2e",
         "test:unit": "vitest run --config vitest.config.ts",
         "test:integration": "vitest run --config vitest.config.ts",
@@ -390,6 +391,7 @@
         "@vscode/vsce": "^3.7.1",
         "esbuild": "^0.27.3",
         "eslint": "^10.0.2",
+        "markdownlint-cli": "^0.47.0",
         "npm-run-all": "^4.1.5",
         "typescript": "^5.9.3",
         "vitest": "^4.1.1"
@@ -421,6 +423,9 @@
     "overrides": {
         "@vscode/vsce": {
             "cheerio": "1.0.0-rc.12"
+        },
+        "markdownlint-cli": {
+            "minimatch": "^10.2.4"
         }
     }
 }

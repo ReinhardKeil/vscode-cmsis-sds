@@ -1,0 +1,60 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - '.github/workflows/markdown.yml'
+      - '.github/markdownlint.json'
+      - '.github/markdownlint.jsonc'
+      - '.github/workflows/nightly.yml'
+      - '.github/ISSUE_TEMPLATE/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    # Temporarily disable CodeQL analysis until made public
+    if: false
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      checks: write
+      contents: read
+      security-events: write
+      packages: read
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        id: checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Initialize CodeQL
+        id: initialize
+        uses: github/codeql-action/init@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.35.3
+        with:
+          queries: security-extended 
+          languages: TypeScript
+          source-root: src
+          
+      - name: Autobuild
+        id: autobuild
+        uses: github/codeql-action/autobuild@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.35.3
+
+      - name: Perform CodeQL Analysis
+        id: analyze
+        uses: github/codeql-action/analyze@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.35.3
