@@ -5,10 +5,10 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Open-CMSIS-Pack/vscode-cmsis-sds/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Open-CMSIS-Pack/vscode-cmsis-sds)
 [![Dependency Review](https://img.shields.io/github/actions/workflow/status/Open-CMSIS-Pack/vscode-cmsis-sds/dependency-review.yml?logo=arm&logoColor=0091bd&label=Dependency%20Review)](https://github.com/Open-CMSIS-Pack/vscode-cmsis-sds/actions/workflows/dependency-review.yml?query=branch:main)
 
-# Arm SDS Tools for VS Code
+# Arm SDS for VS Code
 
-The Arm SDS Tools extension for VS Code simplifies data capturing and regression testing with the [SDS-Framework](https://www.keil.arm.com/packs/sds-arm).
-The extension is an user interface for the [SDSIO-Server](https://arm-software.github.io/SDS-Framework/main/utilities.html#sdsio-server) that is configured using an `*.sdsio.yml` project file.
+The Arm SDS extension for VS Code simplifies data capturing and regression testing with the [SDS-Framework](https://www.keil.arm.com/packs/sds-arm).
+The extension is an user interface for the [SDSIO-Server](https://arm-software.github.io/SDS-Framework/main/utilities.html#sdsio-server) that is configured using an `*.sdsio.yml` control file.
 
 ## SDS View
 
@@ -35,7 +35,7 @@ Example Audio Stream:
 
 ## Usage
 
-### 1. Create a Workspace Configuration
+### 1. Create a Control File
 
 ![file explorer if showing create and select buttons if no sdsio project is opened](./media/screenshots/file-explorer-empty.png)
 
