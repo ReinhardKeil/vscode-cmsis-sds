@@ -1,0 +1,14 @@
+sdsio:
+  interface:
+    usb:
+  workdir: .
+  metadir: .
+  flag-info:
+    - 0: Flag 0
+    - 1: Flag 1
+    - 2: Flag 2
+    - 3: Flag 3
+    - 4: Flag 4
+    - 5: Flag 5
+    - 6: Flag 6
+    - 7: Flag 7
