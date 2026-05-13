@@ -113,6 +113,9 @@ jobs:
       - name: Check copyright
         run: npm run copyright:check
 
+      - name: Download tools (Release Builds)
+        run: npm run download-tools -- --target ${{ matrix.vsce_target }} --no-cache
+
       - name: Package VSIX
         run: npm run package -- --target ${{ matrix.vsce_target }}
 
@@ -128,9 +131,6 @@ jobs:
 
       - name: Run integration tests
         run: npm run test:integration
-
-      - name: Download tools (Release Builds)
-        run: npm run download-tools -- --target ${{ matrix.vsce_target }} --no-cache
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
