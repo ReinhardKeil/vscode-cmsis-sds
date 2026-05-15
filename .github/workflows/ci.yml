@@ -102,6 +102,7 @@ jobs:
               ;;
           esac
           VERSION="$(jq -r ".version" < package.json)"
+          sed -i "s/## Unreleased/## ${VERSION}/" CHANGELOG.md
           echo "Updated version to ${VERSION}"
 
       - name: Remove badges

@@ -131,6 +131,8 @@ jobs:
 
           # Update package.json
           npm version "${NIGHTLY_VERSION}" --no-git-tag-version
+          sed -i "s/## Unreleased/## ${NIGHTLY_VERSION}/" CHANGELOG.md
+          echo "Version is ${NIGHTLY_VERSION}"
 
       - name: Remove badges
         if: runner.os == 'Linux'
