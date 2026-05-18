@@ -24,12 +24,7 @@ const extensionBuild = {
     entryPoints: ['src/extension.ts'],
     bundle: true,
     outfile: 'out/src/extension.js',
-    external: [
-        'vscode',
-        // Native addons — cannot be bundled
-        'serialport',
-        'usb',
-    ],
+    external: ['vscode'],
     format: 'cjs',
     platform: 'node',
     target: 'es2021',

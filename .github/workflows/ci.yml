@@ -142,9 +142,6 @@ jobs:
       - name: Bundle extension (esbuild)
         run: npm run build
 
-      - name: Copy native modules (serialport, usb)
-        run: npm run postbuild
-
       - name: Check copyright
         run: npm run copyright:check
 

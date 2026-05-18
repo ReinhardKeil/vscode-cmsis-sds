@@ -97,9 +97,6 @@ jobs:
       - name: Bundle extension (esbuild)
         run: npm run build
 
-      - name: Copy native modules (serialport, usb)
-        run: npm run postbuild
-
       - name: Update current version
         if: runner.os == 'Linux' && github.repository_owner == 'Open-CMSIS-Pack'
         run: |
