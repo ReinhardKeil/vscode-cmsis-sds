@@ -27,23 +27,47 @@ export type SdsioServerLaunchOptions = {
 
 export class SdsioServerLauncher {
     private terminal?: vscode.Terminal;
+    private stoppingPromise?: Promise<void>;
+    private readonly closeListener: vscode.Disposable;
 
-    constructor(private readonly diagnostics: SdsDiagnostics) { }
+    constructor(private readonly diagnostics: SdsDiagnostics) {
+        this.closeListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
+            if (this.terminal === closedTerminal) {
+                void this.stop('vscode closing');
+            }
+        });
+    }
 
     hasTerminal(): boolean {
         return this.terminal !== undefined;
     }
 
     async stop(reason: string): Promise<void> {
+        if (this.stoppingPromise) {
+            await this.stoppingPromise;
+            return;
+        }
+
         if (!this.terminal) {
             return;
         }
 
-        this.diagnostics.info(DiagnosticSource.Server, reason);
-        this.terminal.sendText('x', false);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        this.terminal.dispose();
-        this.terminal = undefined;
+        const terminal = this.terminal;
+        this.stoppingPromise = (async () => {
+            this.diagnostics.info(DiagnosticSource.Server, reason);
+            terminal.sendText('x', false);
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            terminal.dispose();
+            if (this.terminal === terminal) {
+                this.terminal = undefined;
+            }
+        })();
+
+        try {
+            await this.stoppingPromise;
+        } finally {
+            this.stoppingPromise = undefined;
+        }
     }
 
     async start(options: SdsioServerLaunchOptions): Promise<boolean> {
@@ -72,11 +96,8 @@ export class SdsioServerLauncher {
     }
 
     dispose(): void {
-        if (!this.terminal) {
-            return;
-        }
-        this.terminal.dispose();
-        this.terminal = undefined;
+        void this.stop('Disposing SDSIO server terminal');
+        this.closeListener.dispose();
     }
 
     private resolveServerBinary(basePath: string): string | undefined {

@@ -69,6 +69,7 @@ export class SdsIOInterfaceProvider implements vscode.TreeDataProvider<SdsFlagTr
     private monitorConnected = false;
     private remoteFlags = 0;
     private readonly serverLauncher: SdsioServerLauncher;
+    private shutdownPromise?: Promise<void>;
 
     constructor(private readonly configManager: SdsioConfigManager, monitor?: SdsioMonitorClient, extensionInstallPath?: string) {
         this.monitor = monitor;
@@ -118,7 +119,8 @@ export class SdsIOInterfaceProvider implements vscode.TreeDataProvider<SdsFlagTr
     }
 
     getChildren(_element?: SdsFlagTreeItem): Thenable<SdsFlagTreeItem[]> {
-        return Promise.resolve(this.flags.map((flag) => new SdsFlagTreeItem(flag)));
+        const items = this.flags.map((flag) => new SdsFlagTreeItem(flag));
+        return Promise.resolve(items);
     }
 
     refresh(): void {
@@ -306,7 +308,33 @@ export class SdsIOInterfaceProvider implements vscode.TreeDataProvider<SdsFlagTr
         return this.monitorConnected;
     }
 
-    getBitmaskSummary(): string {
+    async shutdown(reason = 'Shutting down SDSIO server'): Promise<void> {
+        if (this.shutdownPromise) {
+            await this.shutdownPromise;
+            return;
+        }
+
+        this.shutdownPromise = (async () => {
+            this.stop();
+            await this.serverLauncher.stop(reason);
+
+            if (this.monitorConnected && this.monitor) {
+                this.monitorConnected = false;
+                this.monitor.stop();
+                this._onDidChangeTreeData.fire();
+            }
+
+            this.serverLauncher.dispose();
+        })();
+
+        try {
+            await this.shutdownPromise;
+        } finally {
+            this.shutdownPromise = undefined;
+        }
+    }
+
+    getConnectionState(): string {
         const connection = this.monitorConnected ? '🟢 connected' : '⭕ disconnected';
         return `${connection}`;
     }

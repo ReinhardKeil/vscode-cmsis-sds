@@ -54,6 +54,8 @@ const SDSIO_TEMPLATE = [
     '',
 ].join('\n');
 
+let activeFlagsProvider: SdsIOInterfaceProvider | undefined;
+
 export function activate(context: vscode.ExtensionContext) {
     // ── Diagnostics Output Channel ──────────────────────────────
     const diagnostics = SdsDiagnostics.getInstance();
@@ -86,6 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(explorerTreeView);
 
     const flagsProvider = new SdsIOInterfaceProvider(configManager, monitor, context.extensionPath);
+    activeFlagsProvider = flagsProvider;
     const flagsTreeView = vscode.window.createTreeView('sdsIOInterface', {
         treeDataProvider: flagsProvider,
         canSelectMany: false,
@@ -137,8 +140,9 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     const updateSdsIoMessage = () => {
-        flagsTreeView.message = flagsProvider.getBitmaskSummary();
+        flagsTreeView.message = flagsProvider.getConnectionState();
     };
+
     const updateSdsIoCommandContext = () => {
         void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canConnect', flagsProvider.canConnect());
         void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canPlay', flagsProvider.canPlay());
@@ -633,8 +637,12 @@ export function activate(context: vscode.ExtensionContext) {
     }
 }
 
-export function deactivate() {
+export async function deactivate() {
     diag().info(DiagnosticSource.Extension, 'Extension deactivating...');
+    if (activeFlagsProvider) {
+        await activeFlagsProvider.shutdown('VS Code is closing; terminating SDSIO server gracefully');
+        activeFlagsProvider = undefined;
+    }
     SdsDiagnostics.getInstance().dispose();
 }
 

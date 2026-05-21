@@ -37,6 +37,9 @@ vi.mock('vscode', () => {
 
     const window = {
         createTerminal: vi.fn(() => mockTerminal),
+        onDidCloseTerminal: vi.fn(() => ({
+            dispose: vi.fn(),
+        })),
     };
 
     const workspace = {
