@@ -30,13 +30,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             vsce_target: linux-x64
           - os: ubuntu-24.04-arm
             vsce_target: linux-arm64
-          - os: windows-latest
+          - os: windows-2025
             vsce_target: win32-x64
-          - os: macos-latest
+          - os: macos-15
             vsce_target: darwin-arm64
     runs-on: ${{ matrix.os }}
     permissions:
@@ -182,7 +182,7 @@ jobs:
           - linux-x64
           - linux-arm64
           - darwin-arm64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       packages: read
 
@@ -228,7 +228,7 @@ jobs:
 
   publish:
     name: Publish release
-    runs-on: [ubuntu-latest]
+    runs-on: [ubuntu-24.04]
     if: github.event_name == 'release'
     needs: [ package ]
     permissions:

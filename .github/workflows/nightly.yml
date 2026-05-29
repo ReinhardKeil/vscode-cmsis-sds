@@ -18,7 +18,7 @@ jobs:
   validate-links:
     if: github.repository == 'Open-CMSIS-Pack/vscode-cmsis-sds'
     name: Validate Markdown Links
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
@@ -40,13 +40,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             vsce_target: linux-x64
           - os: ubuntu-24.04-arm
             vsce_target: linux-arm64
-          - os: windows-latest
+          - os: windows-2025
             vsce_target: win32-x64
-          - os: macos-latest
+          - os: macos-15
             vsce_target: darwin-arm64
     runs-on: ${{ matrix.os }}
     permissions:
@@ -185,7 +185,7 @@ jobs:
           - linux-x64
           - linux-arm64
           - darwin-arm64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       packages: read
       actions: read

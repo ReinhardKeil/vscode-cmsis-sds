@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   dependency-review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.repository_owner == 'Open-CMSIS-Pack'
     steps:
       - name: Harden the runner (Audit all outbound calls)

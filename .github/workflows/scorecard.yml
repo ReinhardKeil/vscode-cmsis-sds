@@ -19,7 +19,7 @@ permissions:
 jobs:
   analysis:
     name: Scorecard analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event.repository.default_branch == github.ref_name || github.repository == 'Open-CMSIS-Pack/vscode-cmsis-sds'
     permissions:
       # Needed to upload the results to the code-scanning dashboard
