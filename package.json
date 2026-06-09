@@ -1,6 +1,6 @@
 {
     "name": "cmsis-sds",
-    "displayName": "Arm CMSIS SDS",
+    "displayName": "Arm SDS",
     "description": "Record and manage synchronous data streams for ML/DSP development using the Arm SDS-Framework",
     "version": "0.9.0",
     "publisher": "arm",
@@ -170,7 +170,7 @@
             "activitybar": [
                 {
                     "id": "arm-sds-explorer",
-                    "title": "Arm CMSIS SDS",
+                    "title": "Arm SDS",
                     "icon": "media/icons/sds-icon.svg"
                 }
             ]
@@ -179,9 +179,9 @@
             "arm-sds-explorer": [
                 {
                     "id": "sdsExplorer",
-                    "name": "SDS Files",
-                    "icon": "$(graph-line)",
-                    "contextualTitle": "SDS Explorer"
+                    "name": "Files",
+                    "icon": "media/icons/sds-icon.svg",
+                    "contextualTitle": "SDS"
                 }
             ]
         },

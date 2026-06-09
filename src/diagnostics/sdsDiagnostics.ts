@@ -153,17 +153,17 @@ export class SdsDiagnostics {
         const extensionVersion = this._getInstalledExtensionVersion();
 
         this._writeRaw(' ');
-        this._writeRaw('╔═══════════════════════════════════════════════════════════════╗');
-        this._writeRaw('║                   Arm CMSIS SDS Diagnostics                   ║');
-        this._writeRaw('║                   Server & System  Messages                   ║');
-        this._writeRaw('╚═══════════════════════════════════════════════════════════════╝');
+        this._writeRaw('╔═════════════════════════════════════════════════════════╗');
+        this._writeRaw('║                   Arm SDS Diagnostics                   ║');
+        this._writeRaw('║                Server & System  Messages                ║');
+        this._writeRaw('╚═════════════════════════════════════════════════════════╝');
         this._writeRaw(' ');
         this._writeRaw(`  Started: ${new Date().toISOString()}`);
         this._writeRaw(`  VS Code: ${vscode.version}`);
         this._writeRaw(`  Extension: arm-cmsis-sds v${extensionVersion}`);
         this._writeRaw(`  Platform: ${process.platform} (${process.arch})`);
         this._writeRaw(' ');
-        this._writeRaw('───────────────────────────────────────────────────────────────');
+        this._writeRaw('─────────────────────────────────────────────────────────');
         this._writeRaw(' ');
     }
 

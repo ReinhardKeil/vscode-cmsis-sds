@@ -2,7 +2,7 @@ SPDX-License-Identifier: Apache-2.0
 
 =============================================================================
 
-Arm CMSIS SDS extension pack redistributes software components licensed
+Arm SDS extension pack redistributes software components licensed
 under the following licenses:
 
 - sdsio-server licensed under the Apache-2.0 license

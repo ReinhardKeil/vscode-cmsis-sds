@@ -95,8 +95,8 @@ export function activate(context: vscode.ExtensionContext) {
     const updateExplorerConfigUi = async (configPath: string | undefined) => {
         await vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.hasConfig', Boolean(configPath));
         explorerTreeView.title = configPath
-            ? `SDS: ${path.basename(configPath, SDSIO_CONFIG_EXTENSION)}`
-            : 'SDS: Files';
+            ? path.basename(configPath, SDSIO_CONFIG_EXTENSION)
+            : 'Files';
     };
 
     const setActiveConfig = async (configPath: string | undefined, persist: boolean) => {
