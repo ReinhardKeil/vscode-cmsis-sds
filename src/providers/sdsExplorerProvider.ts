@@ -30,8 +30,12 @@ import { detectMediaType } from '../sds/types';
 import { SdsioConfigManager } from '../controller/sdsioConfigManager';
 import { DiagnosticSource, SdsDiagnostics } from '../diagnostics/sdsDiagnostics';
 
-export type SdsTreeItemType = 'group' | 'sdsFile' | 'metadataFile' | 'info';
+type SdsFlagsTreeSource = {
+    getFlagTreeItems(): SdsTreeItem[];
+    getConnectionState(): string;
+};
 
+export type SdsTreeItemType = 'flags' | 'folder' | 'group' | 'sdsFile' | 'metadataFile' | 'info' | 'sdsFlag';
 
 export class SdsTreeItem extends vscode.TreeItem {
     constructor(
@@ -46,8 +50,17 @@ export class SdsTreeItem extends vscode.TreeItem {
         this.tooltip = filePath;
 
         switch (itemType) {
+            case 'folder':
+                this.iconPath = new vscode.ThemeIcon('folder');
+                break;
+            case 'flags':
+                this.iconPath = new vscode.ThemeIcon('symbol-boolean');
+                break;
+            case 'sdsFlag':
+                this.iconPath = new vscode.ThemeIcon('symbol-method-arrow');
+                break;
             case 'group':
-                //this.iconPath = new vscode.ThemeIcon('folder');
+                this.iconPath = new vscode.ThemeIcon('library');
                 this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
                 break;
             case 'sdsFile':
@@ -80,7 +93,10 @@ export class SdsExplorerProvider implements vscode.TreeDataProvider<SdsTreeItem>
 
     private fileWatchers: vscode.FileSystemWatcher[] = [];
 
-    constructor(private readonly configManager: SdsioConfigManager) {
+    constructor(
+        private readonly configManager: SdsioConfigManager,
+        private readonly flagsSource?: SdsFlagsTreeSource,
+    ) {
         this.fileWatchers.push(vscode.workspace.createFileSystemWatcher('**/*.sds'));
         this.fileWatchers.push(vscode.workspace.createFileSystemWatcher('**/*.sds.yml'));
         this.fileWatchers.push(vscode.workspace.createFileSystemWatcher('**/*.sdsio.yml'));
@@ -138,11 +154,11 @@ export class SdsExplorerProvider implements vscode.TreeDataProvider<SdsTreeItem>
             }
         }
 
-        const result: SdsTreeItem[] = [];
+        const files: SdsTreeItem[] = [];
 
         for (const [groupName, items] of groups) {
             if (items.length === 1 && items[0].itemType === 'sdsFile') {
-                result.push(items[0]);
+                files.push(items[0]);
             } else {
                 const group = new SdsTreeItem(
                     groupName,
@@ -153,14 +169,33 @@ export class SdsExplorerProvider implements vscode.TreeDataProvider<SdsTreeItem>
                 );
                 const sdsCount = items.filter(i => i.itemType === 'sdsFile').length;
                 group.description = `${sdsCount} recordings`;
-                result.push(group);
+                files.push(group);
             }
         }
-        this.diagnostics.debug(DiagnosticSource.Extension, `Found ${result.length} top-level groups in SDS Explorer`);
+        this.diagnostics.debug(DiagnosticSource.Extension, `Found ${files.length} top-level groups in SDS Explorer`);
 
-        return result
-            .sort((a, b) => a.label.localeCompare(b.label as string))
-            .sort((a, b) => a.itemType === 'group' && b.itemType !== 'group' ? -1 : 1);
+        const root: SdsTreeItem[] = [];
+        root.push(
+            new SdsTreeItem(
+                'SDS Files',
+                'folder',
+                '',
+                vscode.TreeItemCollapsibleState.Expanded,
+                files
+                    .sort((a, b) => a.label.localeCompare(b.label as string))
+                    .sort((a, b) => a.itemType === 'group' && b.itemType !== 'group' ? -1 : 1)
+            ));
+
+        const flagItems = this.flagsSource?.getFlagTreeItems() ?? [];
+        const flagsNode = new SdsTreeItem(
+            'SDSIO Flags',
+            'flags',
+            '',
+            vscode.TreeItemCollapsibleState.Expanded, flagItems);
+        flagsNode.description = this.flagsSource?.getConnectionState();
+        root.push(flagsNode);
+
+        return root;
     }
 
     private async scanConfiguredDirectories(
@@ -281,7 +316,7 @@ export class SdsExplorerProvider implements vscode.TreeDataProvider<SdsTreeItem>
                                     arguments: [item],
                                 };
                                 const iconMap: Record<SdsMediaType, string> = {
-                                    image: 'file-media',
+                                    image: 'paintcan',
                                     video: 'device-camera-video',
                                     audio: 'unmute',
                                     sensor: 'graph-line',

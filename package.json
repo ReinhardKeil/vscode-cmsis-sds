@@ -103,21 +103,21 @@
             },
             {
                 "command": "arm-sds.sdsinterface.play",
-                "title": "Play Flags",
+                "title": "Start Playback",
                 "category": "SDS Tools",
                 "icon": "$(play)",
                 "enablement": "arm-sds.sdsio.canPlay"
             },
             {
                 "command": "arm-sds.sdsinterface.record",
-                "title": "Record Flags",
+                "title": "Start Recording",
                 "category": "SDS Tools",
                 "icon": "$(record)",
                 "enablement": "arm-sds.sdsio.canRecord"
             },
             {
                 "command": "arm-sds.sdsinterface.stop",
-                "title": "Stop Flags",
+                "title": "Stop IO (Playback/Recording)",
                 "category": "SDS Tools",
                 "icon": "$(debug-stop)",
                 "enablement": "arm-sds.sdsio.canStop"
@@ -134,6 +134,13 @@
                 "category": "SDS Tools",
                 "icon": "$(plug)",
                 "enablement": "arm-sds.sdsio.canConnect"
+            },
+            {
+                "command": "arm-sds.sdsinterface.disconnect",
+                "title": "Disconnect SDSIO Monitor",
+                "category": "SDS Tools",
+                "icon": "$(diff-ignored)",
+                "enablement": "arm-sds.sdsio.canDisconnect"
             },
             {
                 "command": "arm-sds.sds.newConfig",
@@ -175,12 +182,6 @@
                     "name": "SDS Files",
                     "icon": "$(graph-line)",
                     "contextualTitle": "SDS Explorer"
-                },
-                {
-                    "id": "sdsIOInterface",
-                    "name": "SDSIO Flags",
-                    "icon": "$(symbol-boolean)",
-                    "contextualTitle": "SDSIO Flags Interface"
                 }
             ]
         },
@@ -194,22 +195,27 @@
             "view/title": [
                 {
                     "command": "arm-sds.sdsinterface.connect",
-                    "when": "view == sdsIOInterface && arm-sds.sdsio.canConnect",
+                    "when": "view == sdsExplorer && arm-sds.sdsio.canConnect",
+                    "group": "navigation@0"
+                },
+                {
+                    "command": "arm-sds.sdsinterface.disconnect",
+                    "when": "view == sdsExplorer && arm-sds.sdsio.canDisconnect",
                     "group": "navigation@0"
                 },
                 {
                     "command": "arm-sds.sdsinterface.play",
-                    "when": "view == sdsExplorer",
+                    "when": "view == sdsExplorer && arm-sds.sdsio.canPlay",
                     "group": "navigation@1"
                 },
                 {
                     "command": "arm-sds.sdsinterface.record",
-                    "when": "view == sdsExplorer",
+                    "when": "view == sdsExplorer && arm-sds.sdsio.canRecord",
                     "group": "navigation@2"
                 },
                 {
                     "command": "arm-sds.sdsinterface.stop",
-                    "when": "view == sdsExplorer",
+                    "when": "view == sdsExplorer && arm-sds.sdsio.canStop",
                     "group": "navigation@3"
                 },
                 {
@@ -261,8 +267,18 @@
                 },
                 {
                     "command": "arm-sds.sdsinterface.rename",
-                    "when": "view == sdsIOInterface && viewItem == sdsFlag",
+                    "when": "view == sdsExplorer && viewItem == sdsFlag",
                     "group": "inline"
+                },
+                {
+                    "command": "arm-sds.sdsinterface.connect",
+                    "when": "view == sdsExplorer && viewItem == flags && arm-sds.sdsio.canConnect",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "arm-sds.sdsinterface.disconnect",
+                    "when": "view == sdsExplorer && viewItem == flags && arm-sds.sdsio.canDisconnect",
+                    "group": "inline@2"
                 }
             ],
             "explorer/context": [

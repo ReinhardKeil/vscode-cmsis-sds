@@ -26,7 +26,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 import { SdsExplorerProvider, SdsTreeItem } from './providers/sdsExplorerProvider';
-import { SdsIOInterfaceProvider, SdsFlagTreeItem } from './providers/sdsFlagsProvider';
+import { SdsIoControlService } from './providers/sdsIoControlService';
 import { SdsioConfigManager } from './controller/sdsioConfigManager';
 import { SdsioMonitorClient } from './recorder/sdsio/sdsIoMonitorClient';
 import { SdsViewerPanel } from './viewer/sdsViewerPanel';
@@ -54,7 +54,7 @@ const SDSIO_TEMPLATE = [
     '',
 ].join('\n');
 
-let activeFlagsProvider: SdsIOInterfaceProvider | undefined;
+let activeSdsIoControlService: SdsIoControlService | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
     // ── Diagnostics Output Channel ──────────────────────────────
@@ -80,28 +80,23 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push({ dispose: () => configManager.dispose() });
 
     // ── Tree Views ──────────────────────────────────────────────
-    const explorerProvider = new SdsExplorerProvider(configManager);
+    const sdsIoControlService = new SdsIoControlService(configManager, monitor, context.extensionPath);
+    activeSdsIoControlService = sdsIoControlService;
+
+    const explorerProvider = new SdsExplorerProvider(configManager, sdsIoControlService);
     const explorerTreeView = vscode.window.createTreeView('sdsExplorer', {
         treeDataProvider: explorerProvider,
         showCollapseAll: true,
     });
     context.subscriptions.push(explorerTreeView);
 
-    const flagsProvider = new SdsIOInterfaceProvider(configManager, monitor, context.extensionPath);
-    activeFlagsProvider = flagsProvider;
-    const flagsTreeView = vscode.window.createTreeView('sdsIOInterface', {
-        treeDataProvider: flagsProvider,
-        canSelectMany: false,
-    });
-    context.subscriptions.push(flagsTreeView);
-
     let isApplyingConfigSetting = false;
 
     const updateExplorerConfigUi = async (configPath: string | undefined) => {
         await vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.hasConfig', Boolean(configPath));
         explorerTreeView.title = configPath
-            ? `SDS ${path.basename(configPath, SDSIO_CONFIG_EXTENSION)}`
-            : 'SDS Files';
+            ? `SDS: ${path.basename(configPath, SDSIO_CONFIG_EXTENSION)}`
+            : 'SDS: Files';
     };
 
     const setActiveConfig = async (configPath: string | undefined, persist: boolean) => {
@@ -139,29 +134,29 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    const updateSdsIoMessage = () => {
-        flagsTreeView.message = flagsProvider.getConnectionState();
-    };
-
     const updateSdsIoCommandContext = () => {
-        void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canConnect', flagsProvider.canConnect());
-        void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canPlay', flagsProvider.canPlay());
-        void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canRecord', flagsProvider.canRecord());
-        void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canStop', flagsProvider.canStop());
+        void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canConnect', sdsIoControlService.canConnect());
+        void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canDisconnect', sdsIoControlService.canDisconnect());
+        void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canPlay', sdsIoControlService.canPlay());
+        void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canRecord', sdsIoControlService.canRecord());
+        void vscode.commands.executeCommand('setContext', 'arm-sds.sdsio.canStop', sdsIoControlService.canStop());
     };
-    updateSdsIoMessage();
     updateSdsIoCommandContext();
 
     context.subscriptions.push(
-        flagsProvider.onDidChangeTreeData(() => {
-            updateSdsIoMessage();
+        sdsIoControlService.onDidChange(() => {
             updateSdsIoCommandContext();
+            explorerProvider.refresh();
         })
     );
 
     context.subscriptions.push(
-        flagsTreeView.onDidChangeCheckboxState((changes) => {
-            flagsProvider.setEnabledByTreeItems(changes.items);
+        explorerTreeView.onDidChangeCheckboxState((changes) => {
+            const flagChanges = changes.items.filter(([item]) => item.itemType === 'sdsFlag');
+            if (flagChanges.length === 0) {
+                return;
+            }
+            sdsIoControlService.setEnabledByTreeItems(flagChanges);
         })
     );
 
@@ -290,7 +285,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('arm-sds.sdsinterface.connect', async () => {
-            await flagsProvider.connectServer();
+            await sdsIoControlService.connectServer();
             updateSdsIoCommandContext();
             // if (!ok) {
             //     void vscode.window.showWarningMessage('Unable to connect to SDSIO monitor server.');
@@ -299,39 +294,46 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('arm-sds.sdsinterface.disconnect', async () => {
+            await sdsIoControlService.disconnectServer();
+            updateSdsIoCommandContext();
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('arm-sds.sdsinterface.play', async () => {
-            const connected = await flagsProvider.connectServer();
+            const connected = await sdsIoControlService.connectServer();
             if (!connected) {
                 void vscode.window.showWarningMessage('Unable to connect to SDSIO monitor server.');
                 return;
             }
-            flagsProvider.play();
+            sdsIoControlService.play();
             updateSdsIoCommandContext();
         })
     );
 
     context.subscriptions.push(
         vscode.commands.registerCommand('arm-sds.sdsinterface.record', async () => {
-            const connected = await flagsProvider.connectServer();
+            const connected = await sdsIoControlService.connectServer();
             if (!connected) {
                 void vscode.window.showWarningMessage('Unable to connect to SDSIO monitor server.');
                 return;
             }
-            flagsProvider.record();
+            sdsIoControlService.record();
             updateSdsIoCommandContext();
         })
     );
 
     context.subscriptions.push(
         vscode.commands.registerCommand('arm-sds.sdsinterface.stop', () => {
-            flagsProvider.stop();
+            sdsIoControlService.stop();
             updateSdsIoCommandContext();
         })
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('arm-sds.sdsinterface.rename', async (item: SdsFlagTreeItem) => {
-            await flagsProvider.renameFlag(item);
+        vscode.commands.registerCommand('arm-sds.sdsinterface.rename', async (item: SdsTreeItem) => {
+            await sdsIoControlService.renameFlag(item);
         })
     );
 
@@ -639,9 +641,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 export async function deactivate() {
     diag().info(DiagnosticSource.Extension, 'Extension deactivating...');
-    if (activeFlagsProvider) {
-        await activeFlagsProvider.shutdown('VS Code is closing; terminating SDSIO server gracefully');
-        activeFlagsProvider = undefined;
+    if (activeSdsIoControlService) {
+        await activeSdsIoControlService.shutdown('VS Code is closing; terminating SDSIO server gracefully');
+        activeSdsIoControlService = undefined;
     }
     SdsDiagnostics.getInstance().dispose();
 }

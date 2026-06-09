@@ -85,7 +85,7 @@ vi.mock('../../src/controller/sdsioServerLauncher', () => {
     };
 });
 
-import { SdsIOInterfaceProvider } from '../../src/providers/sdsFlagsProvider';
+import { SdsIoControlService } from '../../src/providers/sdsIoControlService';
 
 class FakeMonitor extends EventEmitter {
     start = vi.fn(async () => {
@@ -140,7 +140,7 @@ function createConfigManager(...args: [string?]): FakeConfigManager {
     };
 }
 
-describe('SdsIOInterfaceProvider launcher delegation', () => {
+describe('SdsIoControlService launcher delegation', () => {
     it('connectServer delegates server startup to launcher', async () => {
         launcherMock.hasTerminal.mockReset();
         launcherMock.stop.mockReset();
@@ -150,7 +150,7 @@ describe('SdsIOInterfaceProvider launcher delegation', () => {
 
         const monitor = new FakeMonitor();
         const configManager = createConfigManager('active.sdsio.yml');
-        const provider = new SdsIOInterfaceProvider(
+        const provider = new SdsIoControlService(
             configManager as never,
             monitor as never,
             'c:/workspace/ext',
@@ -178,7 +178,7 @@ describe('SdsIOInterfaceProvider launcher delegation', () => {
 
         const monitor = new FakeMonitor();
         const configManager = createConfigManager('active.sdsio.yml');
-        new SdsIOInterfaceProvider(
+        new SdsIoControlService(
             configManager as never,
             monitor as never,
             'c:/workspace/ext',
@@ -202,7 +202,7 @@ describe('SdsIOInterfaceProvider launcher delegation', () => {
 
         const monitor = new FakeMonitor();
         const configManager = createConfigManager(undefined);
-        const provider = new SdsIOInterfaceProvider(
+        const provider = new SdsIoControlService(
             configManager as never,
             monitor as never,
             'c:/workspace/ext',
@@ -212,5 +212,115 @@ describe('SdsIOInterfaceProvider launcher delegation', () => {
 
         expect(connected).toBe(false);
         expect(launcherMock.start).not.toHaveBeenCalled();
+    });
+
+    it('creates 8 sdsFlag tree items with checkbox metadata', () => {
+        const monitor = new FakeMonitor();
+        const configManager = createConfigManager('active.sdsio.yml');
+        const service = new SdsIoControlService(
+            configManager as never,
+            monitor as never,
+            'c:/workspace/ext',
+        );
+
+        const items = service.getFlagTreeItems();
+
+        expect(items).toHaveLength(8);
+        expect(items[0].itemType).toBe('sdsFlag');
+        expect(items[0].filePath).toBe('flag-0');
+        expect(items[0].description).toBe('(unset)');
+        expect(items[0].checkboxState).toBe(0);
+    });
+
+    it('sends targeted monitor update for one changed checkbox when connected', async () => {
+        launcherMock.hasTerminal.mockReset();
+        launcherMock.stop.mockReset();
+        launcherMock.start.mockReset();
+        launcherMock.hasTerminal.mockReturnValue(false);
+        launcherMock.start.mockResolvedValue(true);
+
+        const monitor = new FakeMonitor();
+        const configManager = createConfigManager('active.sdsio.yml');
+        const service = new SdsIoControlService(
+            configManager as never,
+            monitor as never,
+            'c:/workspace/ext',
+        );
+
+        await service.connectServer();
+
+        const item = service.getFlagTreeItems()[2];
+        service.setEnabledByTreeItems([[item, 1] as never]);
+
+        expect(monitor.setFlag).toHaveBeenCalledWith(2);
+        expect(monitor.sendFlags).not.toHaveBeenCalled();
+    });
+
+    it('sends full flag mask when multiple checkboxes change', async () => {
+        launcherMock.hasTerminal.mockReset();
+        launcherMock.stop.mockReset();
+        launcherMock.start.mockReset();
+        launcherMock.hasTerminal.mockReturnValue(false);
+        launcherMock.start.mockResolvedValue(true);
+
+        const monitor = new FakeMonitor();
+        const configManager = createConfigManager('active.sdsio.yml');
+        const service = new SdsIoControlService(
+            configManager as never,
+            monitor as never,
+            'c:/workspace/ext',
+        );
+
+        await service.connectServer();
+
+        const items = service.getFlagTreeItems();
+        service.setEnabledByTreeItems([
+            [items[0], 1] as never,
+            [items[1], 1] as never,
+        ]);
+
+        expect(monitor.sendFlags).toHaveBeenCalledWith(3, 252);
+    });
+
+    it('disconnectServer stops launcher and monitor and toggles canDisconnect', async () => {
+        launcherMock.hasTerminal.mockReset();
+        launcherMock.stop.mockReset();
+        launcherMock.start.mockReset();
+        launcherMock.hasTerminal.mockReturnValue(false);
+        launcherMock.start.mockResolvedValue(true);
+
+        const monitor = new FakeMonitor();
+        const configManager = createConfigManager('active.sdsio.yml');
+        const service = new SdsIoControlService(
+            configManager as never,
+            monitor as never,
+            'c:/workspace/ext',
+        );
+
+        await service.connectServer();
+        expect(service.canDisconnect()).toBe(true);
+
+        await service.disconnectServer();
+
+        expect(launcherMock.stop).toHaveBeenCalledWith('Disconnecting SDSIO server terminal on user request');
+        expect(monitor.stop).toHaveBeenCalled();
+        expect(service.canDisconnect()).toBe(false);
+    });
+
+    it('canDisconnect is true when a launcher terminal exists even if monitor is not connected', () => {
+        launcherMock.hasTerminal.mockReset();
+        launcherMock.stop.mockReset();
+        launcherMock.start.mockReset();
+        launcherMock.hasTerminal.mockReturnValue(true);
+
+        const monitor = new FakeMonitor();
+        const configManager = createConfigManager('active.sdsio.yml');
+        const service = new SdsIoControlService(
+            configManager as never,
+            monitor as never,
+            'c:/workspace/ext',
+        );
+
+        expect(service.canDisconnect()).toBe(true);
     });
 });
