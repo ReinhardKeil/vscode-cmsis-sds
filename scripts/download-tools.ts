@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import { ArchiveFileAsset, Downloadable, Downloader, GitHubReleaseAsset, GitHubWorkflowAsset} from '@open-cmsis-pack/vsce-helper';
+import { ArchiveFileAsset, Downloadable, Downloader, GitHubReleaseAsset, GitHubWorkflowAsset } from '@open-cmsis-pack/vsce-helper';
 import { PackageJson } from 'type-fest';
 import process from 'node:process';
 
@@ -38,7 +38,7 @@ function splitGitReference(reference: string, owner: string, repo: string) {
     return { repo, owner, reference };
 }
 
-const sdsio : Downloadable = new Downloadable(
+const sdsio: Downloadable = new Downloadable(
     'SDSIO', '',
     async (target) => {
         const { os, arch } = {
@@ -59,7 +59,7 @@ const sdsio : Downloadable = new Downloadable(
         const { repo, owner, reference } = splitGitReference(reqVersion, 'ARM-software', 'SDS-Framework');
         const releaseAsset = new GitHubReleaseAsset(
             owner, repo, reference,
-            `sdsio-server-${os}${arch}-0.9.9.zip`, 
+            `sdsio-server-${os}${arch}-${reference}.zip`,
             { token: process.env.GITHUB_TOKEN });
         const asset = new ArchiveFileAsset(releaseAsset);
         return asset;
@@ -67,7 +67,7 @@ const sdsio : Downloadable = new Downloadable(
 )
 
 
-const sdsioNightly : Downloadable = new Downloadable(
+const sdsioNightly: Downloadable = new Downloadable(
     'SDSIO', '',
     async (target) => {
         const { os, arch } = {
@@ -89,7 +89,7 @@ const sdsioNightly : Downloadable = new Downloadable(
         const assetPattern = (`sdsio-server-${os}${arch}-\\d+\\.\\d+\\.\\d+.*`);
         const asset = new GitHubWorkflowAsset(
             owner, repo, `${reference}.yml`,
-            assetPattern, 
+            assetPattern,
             { token: process.env.GITHUB_TOKEN });
         return asset;
     },
