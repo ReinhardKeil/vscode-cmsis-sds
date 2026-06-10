@@ -38,10 +38,13 @@ import {
     detectMediaType,
     SdsParsedFile,
 } from '../sds';
-import { webviewBus } from '../webview/webview-bus';
-import { isMessage } from '../webview/guard';
+import { ViewerSettings } from './viewerSettings';
 import { ImageFrame, SampleFrame, WebviewMessage } from '../webview/protocol';
-import { SDS_FILE_MATCHER } from '../webview/utilities';
+import {
+    buildViewerWebviewHtml,
+    registerViewerWebview,
+    resolveMetadataPathForSdsFile,
+} from './viewerPanelUtils';
 
 type MediaFrameWindowRequest = {
     command: 'requestMediaFrameWindow';
@@ -126,12 +129,13 @@ export class SdsMediaViewerPanel {
         this.panel = panel;
         this.extensionUri = extensionUri;
         this.sdsFilePath = sdsFilePath;
-        this.metadataPath = metadataPath || this.findMetadataFile(sdsFilePath);
+        this.metadataPath = metadataPath || resolveMetadataPathForSdsFile(sdsFilePath, SDS_METADATA_EXTENSION);
         this.mediaType = 'sensor';
 
         this.panel.iconPath = new vscode.ThemeIcon('device-camera');
         this.update();
-        this.setupWebview(this.panel.webview);
+        this.webview = this.panel.webview;
+        this.disposables.push(registerViewerWebview(this.webview));
 
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
         this.panel.webview.onDidReceiveMessage(
@@ -244,11 +248,12 @@ export class SdsMediaViewerPanel {
     }
     private buildInitialState() {
         const metadata = this.metadata;
+        const decimationPreset = ViewerSettings.getDecimationPreset();
         if (!metadata) {
             return { fileName: path.basename(this.sdsFilePath), error: 'Media data not available.' };
         }
 
-        const base = { fileName: path.basename(this.sdsFilePath) };
+        const base = { fileName: path.basename(this.sdsFilePath), decimationPreset };
         switch (this.mediaType) {
             case 'image': {
                 this.panel.iconPath = new vscode.ThemeIcon('device-camera');
@@ -305,6 +310,7 @@ export class SdsMediaViewerPanel {
                         rangeEnd: audioWindow?.rangeEnd ?? domainEnd,
                         domainStart,
                         domainEnd,
+                        decimationPreset,
                         sampleRate: audioMeta.sample_rate,
                         bitDepth: audioMeta.bit_depth,
                         channels: audioMeta.audio_channels,
@@ -452,82 +458,30 @@ export class SdsMediaViewerPanel {
     }
 
     private getHtml(initialState: Record<string, unknown>): string {
-        const webview = this.panel.webview;
-        const styleUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'out', 'mediaViewerWebview.css')
-        );
-        const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'out', 'mediaViewerWebview.js')
-        );
-        const nonce = this.generateNonce();
-        const stateJson = JSON.stringify(initialState).replace(/</g, '\\u003c');
-        const csp = `default-src 'none'; script-src 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource}; connect-src 'self';`;
+        const title = typeof initialState.fileName === 'string'
+            ? initialState.fileName
+            : 'SDS Media Viewer';
 
-        return /*html*/ `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="${csp}">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${initialState.fileName ? initialState.fileName : 'SDS Media Viewer'}</title>
-    <link rel="stylesheet" href="${styleUri}">
-</head>
-<body>
-    <div id="root"></div>
-    <script nonce="${nonce}">window.__INITIAL_STATE__ = ${stateJson};</script>
-    <script nonce="${nonce}" src="${scriptUri}"></script>
-</body>
-</html>`;
+        return buildViewerWebviewHtml({
+            webview: this.panel.webview,
+            extensionUri: this.extensionUri,
+            styleFile: 'mediaViewerWebview.css',
+            scriptFile: 'mediaViewerWebview.js',
+            title,
+            initialState,
+        });
     }
 
     private getErrorHtml(message: string): string {
         return this.getHtml({ error: message, fileName: path.basename(this.sdsFilePath) });
     }
 
-    private generateNonce(): string {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let result = '';
-        for (let i = 0; i < 16; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    }
-
-    private findMetadataFile(sdsPath: string): string | undefined {
-        const dir = path.dirname(sdsPath);
-        const base = path.basename(sdsPath);
-        const match = base.match(SDS_FILE_MATCHER);
-        if (match) {
-            const metaPath = path.join(dir, `${match[1]}${SDS_METADATA_EXTENSION}`);
-            if (fs.existsSync(metaPath)) {
-                return metaPath;
-            }
-        }
-        return undefined;
-    }
-
     private dispose(): void {
         SdsMediaViewerPanel.panels.delete(this.sdsFilePath);
-        if (this.webview) {
-            webviewBus.unregister(this.webview);
-            this.webview = undefined;
-        }
+        this.webview = undefined;
         this.panel.dispose();
         while (this.disposables.length) {
             this.disposables.pop()?.dispose();
         }
-    }
-
-    private setupWebview(webview: vscode.Webview) {
-        this.webview = webview;
-        webviewBus.register(webview);
-
-        webview.onDidReceiveMessage((raw) => {
-            if (!isMessage(raw)) return;
-
-            webviewBus.handleIncoming(webview, raw);
-        });
-
-        webviewBus.sendInit(webview);
     }
 }

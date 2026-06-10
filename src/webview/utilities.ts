@@ -54,3 +54,8 @@ export function decodeFrame(frame: ImageFrame, width: number, height: number): I
 
     return imageData;
 }
+
+export const getIsDarkTheme = () => {
+    const classList = document.body.classList;
+    return classList.contains('vscode-dark') || classList.contains('vscode-high-contrast');
+};

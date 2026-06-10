@@ -84,9 +84,6 @@ export function ImageViewer({ state, filename }: ImageViewerProps) {
     return (
         <div className="media-page">
             <Row>
-                <Col flex="none" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {filename ? filename : 'Image Viewer'}
-                </Col>
                 <Col flex="auto" style={{ textAlign: 'right' }}>
                     <Space>
                         <Button icon={<ZoomInOutlined />} type="text" title="Zoom In" onClick={() => setZoom(z => Math.min(8, z * 1.5))}></Button>

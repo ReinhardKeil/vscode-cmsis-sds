@@ -90,7 +90,7 @@ function extractHtml(sourceFile: string): string {
  * Uses the first `getHtml` in the viewer (the main data view, not the error view).
  */
 export function getViewerHtml(): string {
-    assertWebviewAssetsExist(['out/viewerWebview.css', 'out/viewerWebview.js']);
+    assertWebviewAssetsExist(['out/dataViewerWebview.css', 'out/dataViewerWebview.js']);
 
     const sampleData = [
         { timestamp: 0, timeSeconds: 0.0, values: { x: 1.0, y: 2.0, z: 3.0 } },
@@ -132,13 +132,13 @@ export function getViewerHtml(): string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Viewer Test</title>
-    <link rel="stylesheet" href="/out/viewerWebview.css">
+    <link rel="stylesheet" href="/out/dataViewerWebview.css">
 </head>
 <body>
     <div id="root"></div>
     ${MOCK_VSCODE_API}
     <script>window.__INITIAL_STATE__ = ${JSON.stringify(initialState).replace(/</g, '\\u003c')};</script>
-    <script src="/out/viewerWebview.js"></script>
+    <script src="/out/dataViewerWebview.js"></script>
 </body>
 </html>`;
 }

@@ -23,6 +23,7 @@ import { AudioViewer } from './components/audioViewer';
 import { ImageViewer } from './components/imageViewer';
 import { VideoViewer } from './components/videoViewer';
 import { ImageFrame, SampleFrame } from '../../webview/protocol';
+import { getIsDarkTheme } from '../../webview/utilities';
 
 
 type InitialState = {
@@ -34,6 +35,7 @@ type InitialState = {
         rangeEnd?: number;
         domainStart?: number;
         domainEnd?: number;
+        decimationPreset?: 'accuracy' | 'performance';
         sampleRate: number;
         bitDepth: number;
         channels: number;
@@ -73,10 +75,6 @@ function MediaViewerApp() {
 }
 
 function ThemedViewerApp() {
-    const getIsDarkTheme = () => {
-        const classList = document.body.classList;
-        return classList.contains('vscode-dark') || classList.contains('vscode-high-contrast');
-    };
 
     const [isDarkTheme, setIsDarkTheme] = useState(getIsDarkTheme);
 

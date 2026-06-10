@@ -105,9 +105,6 @@ export function VideoViewer({ state, filename }: VideoViewerProps) {
     return (
         <div className="media-page">
             <Row>
-                <Col flex="none" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {filename ? filename : 'Video Viewer'}
-                </Col>
                 <Col flex="auto" style={{ textAlign: 'right' }}>
                     <Space>
                         <Button icon={<ZoomInOutlined />} type="text" onClick={() => setZoom(z => Math.min(8, z * 1.5))}></Button>

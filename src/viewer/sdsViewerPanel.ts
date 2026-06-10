@@ -34,10 +34,13 @@ import {
     SDS_METADATA_EXTENSION,
     SdsDecodedSample,
 } from '../sds';
-import { webviewBus } from '../webview/webview-bus';
-import { isMessage } from '../webview/guard';
+import { ViewerSettings } from './viewerSettings';
 import { WebviewMessage } from '../webview/protocol';
-import { SDS_FILE_MATCHER } from '../webview/utilities';
+import {
+    buildViewerWebviewHtml,
+    registerViewerWebview,
+    resolveMetadataPathForSdsFile,
+} from './viewerPanelUtils';
 
 type VisibleRangeRequest = {
     command: 'requestVisibleRangeData';
@@ -108,8 +111,8 @@ export class SdsViewerPanel {
         this.extensionUri = extensionUri;
         this.sdsFilePath = sdsFilePath;
         this.metadataPath = metadataPath;
-
-        this.setupWebview(panel.webview);
+        this.webview = panel.webview;
+        this.disposables.push(registerViewerWebview(this.webview));
 
         this.panel.iconPath = new vscode.ThemeIcon('graph-line');
         this.update();
@@ -162,7 +165,7 @@ export class SdsViewerPanel {
     private update(): void {
         // Find metadata file if not specified
         if (!this.metadataPath) {
-            this.metadataPath = this.findMetadataFile(this.sdsFilePath);
+            this.metadataPath = resolveMetadataPathForSdsFile(this.sdsFilePath, SDS_METADATA_EXTENSION);
         }
 
         try {
@@ -206,6 +209,7 @@ export class SdsViewerPanel {
                 domainStart,
                 domainEnd,
                 fileName: path.basename(this.sdsFilePath),
+                decimationPreset: ViewerSettings.getDecimationPreset(),
             });
         } catch (err) {
             this.panel.webview.html = this.getErrorHtml(err instanceof Error ? err.message : String(err));
@@ -339,83 +343,27 @@ export class SdsViewerPanel {
         return lo;
     }
 
-    private findMetadataFile(sdsPath: string): string | undefined {
-        const dir = path.dirname(sdsPath);
-        const base = path.basename(sdsPath);
-        // <name>.<index>.sds -> <name>.sds.yml
-        const match = base.match(SDS_FILE_MATCHER);
-        if (match) {
-            const metaPath = path.join(dir, `${match[1]}${SDS_METADATA_EXTENSION}`);
-            if (fs.existsSync(metaPath)) {
-                return metaPath;
-            }
-        }
-        return undefined;
-    }
     private getHtml(initialState: Record<string, unknown>): string {
-        const webview = this.panel.webview;
-        const styleUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'out', 'viewerWebview.css')
-        );
-        const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'out', 'viewerWebview.js')
-        );
-        const nonce = this.generateNonce();
-        const stateJson = JSON.stringify(initialState).replace(/</g, '\\u003c');
-        const csp = `default-src 'none'; script-src 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource}; connect-src 'self';`;
-
-        return /*html*/ `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="${csp}">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDS Viewer</title>
-    <link rel="stylesheet" href="${styleUri}">
-</head>
-<body>
-    <div id="root"></div>
-    <script nonce="${nonce}">window.__INITIAL_STATE__ = ${stateJson};</script>
-    <script nonce="${nonce}" src="${scriptUri}"></script>
-</body>
-</html>`;
+        return buildViewerWebviewHtml({
+            webview: this.panel.webview,
+            extensionUri: this.extensionUri,
+            styleFile: 'dataViewerWebview.css',
+            scriptFile: 'dataViewerWebview.js',
+            title: 'SDS Viewer',
+            initialState,
+        });
     }
 
     private getErrorHtml(message: string): string {
         return this.getHtml({ error: message });
     }
 
-    private generateNonce(): string {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let result = '';
-        for (let i = 0; i < 16; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    }
-
     private dispose(): void {
         SdsViewerPanel.panels.delete(this.sdsFilePath);
-        if (this.webview) {
-            webviewBus.unregister(this.webview);
-            this.webview = undefined;
-        }
+        this.webview = undefined;
         this.panel.dispose();
         while (this.disposables.length) {
             this.disposables.pop()?.dispose();
         }
-    }
-
-    private setupWebview(webview: vscode.Webview) {
-        this.webview = webview;
-        webviewBus.register(webview);
-
-        webview.onDidReceiveMessage((raw) => {
-            if (!isMessage(raw)) return;
-
-            webviewBus.handleIncoming(webview, raw);
-        });
-
-        webviewBus.sendInit(webview);
     }
 }

@@ -58,7 +58,7 @@ html,
 .info-bar {
     display: flex;
     gap: 16px;
-    padding: 6px 12px;
+    padding: 3px 12px;
     font-size: 11px;
     opacity: 0.8;
     border-bottom: 1px solid var(--vscode-panel-border);
@@ -110,6 +110,7 @@ canvas {
     display: flex;
     flex-direction: column;
     height: 100%;
+    overflow: hidden;
 }
 
 .error-page {

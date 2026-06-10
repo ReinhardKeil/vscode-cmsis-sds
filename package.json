@@ -336,10 +336,20 @@
                     ],
                     "description": "Color scheme for the waveform viewer"
                 },
+                "arm-sds.viewer.decimationPreset": {
+                    "type": "string",
+                    "default": "accuracy",
+                    "enum": [
+                        "accuracy",
+                        "performance"
+                    ],
+                    "description": "Default decimation preset for SDS charts (accuracy keeps more points, performance uses fewer points)."
+                },
                 "cmsis-sds.sdsio.configFile": {
                     "type": "string",
                     "default": "",
-                    "description": "Relative path to the active .sdsio.yml configuration file"
+                    "description": "Relative path to the active .sdsio.yml configuration file",
+                    "scope": "resource"
                 }
             }
         },
@@ -433,6 +443,8 @@
     },
     "dependencies": {
         "antd": "^6.3.4",
+        "@ant-design/charts": "^2.2.21",
+        "@ant-design/icons": "^6.2.3",
         "debug": "^4.4.3",
         "ms": "^2.1.3",
         "node-gyp-build": "^4.8.4",

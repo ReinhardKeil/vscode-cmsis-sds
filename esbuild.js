@@ -49,7 +49,7 @@ const webviewBase = {
 };
 
 const webviewEntries = [
-    { entryPoints: ['src/viewer/webview/viewerApp.tsx'], outfile: 'out/viewerWebview.js' },
+    { entryPoints: ['src/viewer/webview/dataViewerApp.tsx'], outfile: 'out/dataViewerWebview.js' },
     { entryPoints: ['src/viewer/webview/mediaViewerApp.tsx'], outfile: 'out/mediaViewerWebview.js' },
 ];
 

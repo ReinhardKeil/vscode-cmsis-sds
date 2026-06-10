@@ -14,19 +14,15 @@
  * limitations under the License.
  */
 
-import { ZoomInOutlined, ZoomOutOutlined, ExpandOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { ExpandOutlined, PauseCircleOutlined, PlayCircleOutlined, ZoomInOutlined, ZoomOutOutlined } from '@ant-design/icons';
 import { Button, Col, Row, Slider } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BroadcastMessage, getIndexedSdsSuffix, Message, SampleFrame } from '../../../webview/protocol';
 import { broadcastMessage } from '../../../webview/vscode-api';
-import {
-    accumulateEnvelopeValue,
-    createEnvelopeBins,
-    createTimeToPixelMapper,
-    getEnvelopeBinIndex,
-    getPlotArea,
-    updateEnvelopeMode,
-} from './graphCanvas';
+import { BaseChartViewer, ChartSample } from './baseChartViewer';
+import { decimateExtremaSeries, DecimationPreset } from './decimation';
+import { getIsDarkTheme } from '../../../webview/utilities';
+import { useViewportRange } from './useViewportRange';
 
 type AudioState = {
     samples: SampleFrame[];
@@ -34,6 +30,7 @@ type AudioState = {
     rangeEnd?: number;
     domainStart?: number;
     domainEnd?: number;
+    decimationPreset?: DecimationPreset;
     sampleRate: number;
     bitDepth: number;
     channels: number;
@@ -46,157 +43,123 @@ type AudioViewerProps = {
     filename?: string;
 };
 
-type AudioWindowResponse = {
-    command: 'mediaAudioWindowData';
-    requestId: number;
-    payload?: {
-        rangeStart?: number;
-        rangeEnd?: number;
-        quality?: 'low' | 'high';
-        samples?: SampleFrame[];
-    };
-};
-
-const CHART_MARGIN = { top: 20, right: 20, bottom: 30, left: 50 };
-const PREFETCH_FACTOR = 1.5;
-
 export function AudioViewer({ state, filename }: AudioViewerProps) {
     const {
         samples,
-        rangeStart,
-        rangeEnd,
-        domainStart: stateDomainStart,
-        domainEnd: stateDomainEnd,
         sampleRate,
         bitDepth,
         channels,
         totalSamples,
         totalRecords,
+        domainStart,
+        domainEnd,
+        decimationPreset: initialDecimationPreset,
     } = state;
 
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const [loadedFrames, setLoadedFrames] = useState<SampleFrame[]>(samples);
-    const [loadedRange, setLoadedRange] = useState<{ start: number; end: number }>({
-        start: rangeStart ?? stateDomainStart ?? 0,
-        end: rangeEnd ?? stateDomainEnd ?? 1,
-    });
-    const [isDragMode, setIsDragMode] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
-
-    const domainStart = stateDomainStart ?? loadedRange.start;
-    const domainEnd = stateDomainEnd ?? loadedRange.end;
-
-    const [view, setView] = useState<{ start: number; end: number }>({ start: domainStart, end: domainEnd });
-    const viewStartRef = useRef(view.start);
-    const viewEndRef = useRef(view.end);
-
-    const drawRef = useRef<() => void>(() => { });
-    const cursorTimeRef = useRef<number | null>(null);
-    const playbackCursorTimeRef = useRef<number | null>(null);
-
+    const [highlightedTime, setHighlightedTime] = useState<number | null>(null);
+    const [viewWidth, setViewWidth] = useState<number>(() => Math.max(640, window.innerWidth));
+    const [decimationPreset, setDecimationPreset] = useState<DecimationPreset>(initialDecimationPreset ?? 'accuracy');
     const audioCtxRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<AudioBufferSourceNode | null>(null);
-    const playbackStartTimeRef = useRef(0);
-    const playbackDurationRef = useRef(0);
-    const playbackStartedAtRef = useRef(0);
-    const playbackRafRef = useRef<number | null>(null);
 
-    const requestSeqRef = useRef(0);
-    const latestAppliedSeqRef = useRef(0);
-    const cachedRangeRef = useRef<{ start: number; end: number; quality: 'low' | 'high' } | null>(null);
+    const totalDurationSeconds = Math.max(0, (domainEnd ?? 0) - (domainStart ?? 0));
 
-    const domainSpan = Math.max(domainEnd - domainStart, 0.001);
-    const minViewSpan = Math.max(domainSpan / 1000, 0.001);
-    const sliderStep = Math.max(domainSpan / 1000, 0.0001);
-
-    const totalDurationSeconds = Math.max(0, domainEnd - domainStart);
-    const loadedSampleCount = useMemo(
-        () => loadedFrames.reduce((sum, frame) => sum + frame.samples.length, 0),
-        [loadedFrames]
-    );
-
-    const canvasContainerStyle: React.CSSProperties = {
-        position: 'relative',
-        width: '100%',
-        height: '100vh',
-        flex: 1,
-        minHeight: 0,
-    };
-
-    const canvasStyle: React.CSSProperties = {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%'
-    };
-
-    const clampRange = useCallback((start: number, end: number): [number, number] => {
-        if (domainEnd <= domainStart) {
+    const sampleDomain = useMemo<[number, number]>(() => {
+        if (sampleRate <= 0 || samples.length === 0) {
             return [0, 1];
         }
 
-        if (start > end) {
-            [start, end] = [end, start];
+        let minX = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        for (const frame of samples) {
+            if (!Array.isArray(frame.samples) || frame.samples.length === 0) {
+                continue;
+            }
+
+            const startX = frame.timestamp;
+            const endX = frame.timestamp + ((frame.samples.length - 1) / sampleRate);
+            if (Number.isFinite(startX) && startX < minX) {
+                minX = startX;
+            }
+            if (Number.isFinite(endX) && endX > maxX) {
+                maxX = endX;
+            }
         }
 
-        let span = end - start;
-        if (span < minViewSpan) {
-            const center = (start + end) / 2;
-            start = center - minViewSpan / 2;
-            end = center + minViewSpan / 2;
-            span = end - start;
+        if (!Number.isFinite(minX) || !Number.isFinite(maxX) || minX === maxX) {
+            return [0, 1];
         }
 
-        if (start < domainStart) {
-            end += domainStart - start;
-            start = domainStart;
+        return [minX, maxX];
+    }, [sampleRate, samples]);
+
+    const resolvedDomainStart = domainStart ?? sampleDomain[0];
+    const resolvedDomainEnd = domainEnd ?? sampleDomain[1];
+    const {
+        viewRange,
+        setViewRange,
+        setViewRangeClamped,
+        clampRange,
+        domainSpan,
+        sliderStep,
+        isDragging,
+        onZoomIn,
+        onZoomOut,
+        onFit,
+        onSliderChange,
+        onSliderAfterChange,
+    } = useViewportRange({ domainStart: resolvedDomainStart, domainEnd: resolvedDomainEnd });
+
+    const loadedSampleCount = useMemo(
+        () => samples.reduce((sum, frame) => sum + frame.samples.length, 0),
+        [samples]
+    );
+
+    const sliderStyle: React.CSSProperties = {
+        flex: 1,
+        margin: 0,
+    };
+
+    const chartData = useMemo<ChartSample[]>(() => {
+        const data: ChartSample[] = [];
+        if (sampleRate <= 0) {
+            return data;
         }
-        if (end > domainEnd) {
-            start -= end - domainEnd;
-            end = domainEnd;
+
+        const [start, end] = viewRange;
+
+        for (const frame of samples) {
+            for (let i = 0; i < frame.samples.length; i++) {
+                const x = frame.timestamp + (i / sampleRate);
+                if (x < start || x > end) {
+                    continue;
+                }
+
+                data.push({
+                    x,
+                    y: frame.samples[i],
+                    channel: 'audio',
+                });
+            }
         }
+        const presetFactor = decimationPreset === 'accuracy' ? 2.8 : 1.3;
+        const presetFloor = decimationPreset === 'accuracy' ? 2400 : 1200;
+        const dragFactor = isDragging ? 0.7 : 1;
+        const maxPoints = Math.max(presetFloor, Math.floor(viewWidth * presetFactor * dragFactor));
+        return decimateExtremaSeries(data, maxPoints);
+    }, [decimationPreset, isDragging, sampleRate, samples, viewRange, viewWidth]);
 
-        start = Math.max(domainStart, start);
-        end = Math.min(domainEnd, end);
-
-        if (span <= 0) {
-            return [domainStart, domainEnd];
-        }
-
-        return [start, end];
-    }, [domainEnd, domainStart, minViewSpan]);
-
-    useEffect(() => {
-        setLoadedFrames(samples);
-        setLoadedRange({
-            start: rangeStart ?? stateDomainStart ?? domainStart,
-            end: rangeEnd ?? stateDomainEnd ?? domainEnd,
+    const onCursorChange = useCallback((time: number) => {
+        setHighlightedTime(time);
+        broadcastMessage({
+            type: 'broadcast',
+            timeStamp: time,
+            fileName: filename,
         });
-        cachedRangeRef.current = {
-            start: rangeStart ?? stateDomainStart ?? domainStart,
-            end: rangeEnd ?? stateDomainEnd ?? domainEnd,
-            quality: 'high',
-        };
-    }, [samples, rangeStart, rangeEnd, stateDomainStart, stateDomainEnd, domainStart, domainEnd]);
+    }, [filename]);
 
-    useEffect(() => {
-        const [start, end] = clampRange(view.start, view.end);
-        setView({ start, end });
-    }, [domainStart, domainEnd, clampRange]);
-
-    useEffect(() => {
-        viewStartRef.current = view.start;
-        viewEndRef.current = view.end;
-        drawRef.current();
-    }, [view]);
-
-    const stopPlayback = (updateState = true) => {
-        if (playbackRafRef.current !== null) {
-            cancelAnimationFrame(playbackRafRef.current);
-            playbackRafRef.current = null;
-        }
-
+    const stopPlayback = () => {
         const source = sourceRef.current;
         if (source) {
             try {
@@ -207,62 +170,18 @@ export function AudioViewer({ state, filename }: AudioViewerProps) {
             source.disconnect();
             sourceRef.current = null;
         }
-
-        playbackCursorTimeRef.current = null;
-        if (updateState) {
-            setIsPlaying(false);
-        }
-        drawRef.current();
+        setIsPlaying(false);
     };
 
-    const startPlaybackTicker = () => {
-        const tick = () => {
-            const audioCtx = audioCtxRef.current;
-            if (!audioCtx || !sourceRef.current) {
-                playbackRafRef.current = null;
-                return;
-            }
-
-            const elapsed = Math.max(0, audioCtx.currentTime - playbackStartedAtRef.current);
-            const clamped = Math.min(elapsed, playbackDurationRef.current);
-            playbackCursorTimeRef.current = playbackStartTimeRef.current + clamped;
-            drawRef.current();
-
-            playbackRafRef.current = requestAnimationFrame(tick);
-        };
-
-        if (playbackRafRef.current !== null) {
-            cancelAnimationFrame(playbackRafRef.current);
-        }
-        playbackRafRef.current = requestAnimationFrame(tick);
-    };
-
-    const playVisibleRange = async () => {
-        if (loadedFrames.length === 0 || sampleRate <= 0) {
-            return;
-        }
-
-        const startTime = Math.max(viewStartRef.current, loadedRange.start);
-        const endTime = Math.min(viewEndRef.current, loadedRange.end);
-        if (endTime <= startTime) {
+    const playLoadedSamples = async () => {
+        if (sampleRate <= 0 || samples.length === 0) {
             return;
         }
 
         const pcm: number[] = [];
-        for (const frame of loadedFrames) {
-            const frameStart = frame.timestamp;
-            const frameEnd = frameStart + (frame.samples.length / sampleRate);
-            if (frameEnd <= startTime) {
-                continue;
-            }
-            if (frameStart >= endTime) {
-                break;
-            }
-
-            const fromOffset = Math.max(0, Math.floor((startTime - frameStart) * sampleRate));
-            const toOffset = Math.min(frame.samples.length, Math.ceil((endTime - frameStart) * sampleRate));
-            for (let i = fromOffset; i < toOffset; i++) {
-                pcm.push(frame.samples[i]);
+        for (const frame of samples) {
+            for (const value of frame.samples) {
+                pcm.push(value);
             }
         }
 
@@ -273,48 +192,39 @@ export function AudioViewer({ state, filename }: AudioViewerProps) {
         if (!audioCtxRef.current) {
             audioCtxRef.current = new AudioContext({ sampleRate });
         }
+
         const audioCtx = audioCtxRef.current;
         if (!audioCtx) {
             return;
         }
+
         if (audioCtx.state === 'suspended') {
             await audioCtx.resume();
         }
 
-        stopPlayback(false);
+        stopPlayback();
 
-        const audioBuffer = audioCtx.createBuffer(1, pcm.length, sampleRate);
-        audioBuffer.copyToChannel(Float32Array.from(pcm), 0);
+        const buffer = audioCtx.createBuffer(1, pcm.length, sampleRate);
+        buffer.copyToChannel(Float32Array.from(pcm), 0);
 
         const source = audioCtx.createBufferSource();
-        source.buffer = audioBuffer;
+        source.buffer = buffer;
         source.connect(audioCtx.destination);
         source.onended = () => {
             if (sourceRef.current === source) {
                 sourceRef.current = null;
                 setIsPlaying(false);
-                playbackCursorTimeRef.current = null;
-                if (playbackRafRef.current !== null) {
-                    cancelAnimationFrame(playbackRafRef.current);
-                    playbackRafRef.current = null;
-                }
-                drawRef.current();
             }
         };
 
-        playbackStartTimeRef.current = startTime;
-        playbackDurationRef.current = pcm.length / sampleRate;
-        playbackStartedAtRef.current = audioCtx.currentTime;
-        playbackCursorTimeRef.current = startTime;
         sourceRef.current = source;
         setIsPlaying(true);
         source.start();
-        startPlaybackTicker();
     };
 
     useEffect(() => {
         return () => {
-            stopPlayback(false);
+            stopPlayback();
             const audioCtx = audioCtxRef.current;
             if (audioCtx) {
                 void audioCtx.close();
@@ -323,521 +233,44 @@ export function AudioViewer({ state, filename }: AudioViewerProps) {
         };
     }, []);
 
-    const requestAudioWindow = useCallback((start: number, end: number, quality: 'low' | 'high') => {
-        const canvas = canvasRef.current;
-        if (!canvas) {
-            return;
-        }
-
-        const rangeStart = Math.min(start, end);
-        const rangeEnd = Math.max(start, end);
-        const rangeSpan = Math.max(rangeEnd - rangeStart, minViewSpan);
-        const fetchSpan = Math.min(domainEnd - domainStart, rangeSpan * PREFETCH_FACTOR);
-        const center = (rangeStart + rangeEnd) / 2;
-
-        let fetchStart = center - fetchSpan / 2;
-        let fetchEnd = center + fetchSpan / 2;
-        if (fetchStart < domainStart) {
-            fetchEnd += domainStart - fetchStart;
-            fetchStart = domainStart;
-        }
-        if (fetchEnd > domainEnd) {
-            fetchStart -= fetchEnd - domainEnd;
-            fetchEnd = domainEnd;
-        }
-        fetchStart = Math.max(domainStart, fetchStart);
-        fetchEnd = Math.min(domainEnd, fetchEnd);
-
-        const rect = canvas.getBoundingClientRect();
-        const plotWidth = Math.max(1, Math.floor(rect.width - CHART_MARGIN.left - CHART_MARGIN.right));
-        const requestId = ++requestSeqRef.current;
-
-        broadcastMessage({
-            command: 'requestMediaAudioWindow',
-            requestId,
-            payload: {
-                rangeStart: fetchStart,
-                rangeEnd: fetchEnd,
-                plotWidth,
-                quality,
-            },
-        });
-    }, [domainEnd, domainStart, minViewSpan]);
-
-    const shouldRequestForRange = useCallback((start: number, end: number, quality: 'low' | 'high') => {
-        const cached = cachedRangeRef.current;
-        if (!cached) {
-            return true;
-        }
-
-        const rangeStart = Math.min(start, end);
-        const rangeEnd = Math.max(start, end);
-        if (rangeStart < cached.start || rangeEnd > cached.end) {
-            return true;
-        }
-
-        if (quality === 'high' && cached.quality === 'low') {
-            return true;
-        }
-
-        return false;
-    }, []);
-
     useEffect(() => {
-        if (domainEnd <= domainStart) {
-            return;
-        }
+        const onMessage = (event: MessageEvent) => {
+            const msg = event.data as Message;
+            if (msg.type !== 'broadcast') {
+                return;
+            }
 
-        const quality: 'low' | 'high' = isDragMode ? 'low' : 'high';
-        if (!shouldRequestForRange(view.start, view.end, quality)) {
-            return;
-        }
+            const payload = msg as BroadcastMessage;
+            if (getIndexedSdsSuffix(filename) !== getIndexedSdsSuffix(payload.fileName)) {
+                return;
+            }
 
-        const handle = window.setTimeout(() => {
-            requestAudioWindow(view.start, view.end, quality);
-        }, isDragMode ? 40 : 100);
+            if (typeof payload.timeStamp !== 'number') {
+                return;
+            }
 
-        return () => {
-            window.clearTimeout(handle);
+            setHighlightedTime(payload.timeStamp);
         };
-    }, [domainEnd, domainStart, isDragMode, requestAudioWindow, shouldRequestForRange, view]);
+
+        window.addEventListener('message', onMessage);
+        return () => {
+            window.removeEventListener('message', onMessage);
+        };
+    }, [filename]);
 
     useEffect(() => {
         const onResize = () => {
-            cachedRangeRef.current = null;
-            requestAudioWindow(viewStartRef.current, viewEndRef.current, isDragMode ? 'low' : 'high');
+            setViewWidth(Math.max(640, window.innerWidth));
         };
 
         window.addEventListener('resize', onResize);
         return () => {
             window.removeEventListener('resize', onResize);
         };
-    }, [isDragMode, requestAudioWindow]);
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) {
-            return;
-        }
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-            return;
-        }
-
-        let dpr = window.devicePixelRatio || 1;
-        let envelopeModeActive = false;
-
-        const handleMessage = (event: MessageEvent) => {
-            const msg = event.data as Message;
-
-            switch (msg.type) {
-                case 'broadcast': {
-                    if (getIndexedSdsSuffix(filename) !== getIndexedSdsSuffix((msg as BroadcastMessage).fileName)) {
-                        break;
-                    }
-
-                    const ts = (msg as BroadcastMessage).timeStamp;
-                    if (typeof ts !== 'number') {
-                        break;
-                    }
-
-                    cursorTimeRef.current = ts;
-                    drawRef.current();
-                    break;
-                }
-            }
-
-            const response = msg as unknown as AudioWindowResponse;
-            if (response.command === 'mediaAudioWindowData' && typeof response.requestId === 'number') {
-                if (response.requestId < latestAppliedSeqRef.current) {
-                    return;
-                }
-                latestAppliedSeqRef.current = response.requestId;
-
-                const payload = response.payload;
-                if (!payload || !Array.isArray(payload.samples)) {
-                    return;
-                }
-
-                setLoadedFrames(payload.samples);
-                const nextStart = typeof payload.rangeStart === 'number' ? payload.rangeStart : loadedRange.start;
-                const nextEnd = typeof payload.rangeEnd === 'number' ? payload.rangeEnd : loadedRange.end;
-                setLoadedRange({ start: nextStart, end: nextEnd });
-                cachedRangeRef.current = {
-                    start: Math.min(nextStart, nextEnd),
-                    end: Math.max(nextStart, nextEnd),
-                    quality: payload.quality === 'low' ? 'low' : 'high',
-                };
-            }
-        };
-
-        const resize = () => {
-            dpr = window.devicePixelRatio || 1;
-            const rect = canvas.parentElement?.getBoundingClientRect();
-            if (!rect) {
-                return;
-            }
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            canvas.style.width = `${rect.width}px`;
-            canvas.style.height = `${rect.height}px`;
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            drawRef.current();
-        };
-
-        const forEachVisibleSample = (cb: (time: number, value: number) => void) => {
-            const start = viewStartRef.current;
-            const end = viewEndRef.current;
-            if (end <= start || loadedFrames.length === 0) {
-                return;
-            }
-
-            for (const frame of loadedFrames) {
-                const frameStart = frame.timestamp;
-                const frameEnd = frameStart + (frame.samples.length / sampleRate);
-                if (frameEnd < start) {
-                    continue;
-                }
-                if (frameStart > end) {
-                    break;
-                }
-
-                const from = Math.max(0, Math.floor((start - frameStart) * sampleRate));
-                const to = Math.min(frame.samples.length, Math.ceil((end - frameStart) * sampleRate));
-                for (let i = from; i < to; i++) {
-                    cb(frameStart + (i / sampleRate), frame.samples[i]);
-                }
-            }
-        };
-
-        drawRef.current = () => {
-            const w = canvas.width / dpr;
-            const h = canvas.height / dpr;
-            ctx.clearRect(0, 0, w, h);
-
-            const plot = getPlotArea(canvas, dpr, CHART_MARGIN);
-            if (plot.w <= 0 || plot.h <= 0) {
-                return;
-            }
-
-            const viewStart = viewStartRef.current;
-            const viewEnd = viewEndRef.current;
-            const xFromTime = createTimeToPixelMapper(viewStart, viewEnd, plot);
-
-            if (loadedFrames.length === 0) {
-                ctx.strokeStyle = 'rgba(128,128,128,0.3)';
-                ctx.strokeRect(plot.x, plot.y, plot.w, plot.h);
-                return;
-            }
-
-            let yMin = Infinity;
-            let yMax = -Infinity;
-            let visibleCount = 0;
-            forEachVisibleSample((_time, value) => {
-                visibleCount++;
-                if (value < yMin) yMin = value;
-                if (value > yMax) yMax = value;
-            });
-
-            if (visibleCount === 0 || !Number.isFinite(yMin) || !Number.isFinite(yMax)) {
-                return;
-            }
-
-            if (yMin === yMax) {
-                yMin -= 1;
-                yMax += 1;
-            }
-            const yPad = (yMax - yMin) * 0.1 || 0.1;
-            yMin -= yPad;
-            yMax += yPad;
-
-            const yFromValue = (value: number) => plot.y + plot.h - ((value - yMin) / (yMax - yMin)) * plot.h;
-
-            const zeroY = yFromValue(0);
-            ctx.strokeStyle = 'rgba(128,128,128,0.3)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(plot.x, zeroY);
-            ctx.lineTo(plot.x + plot.w, zeroY);
-            ctx.stroke();
-
-            const binCount = Math.max(1, Math.floor(plot.w));
-            envelopeModeActive = updateEnvelopeMode(envelopeModeActive, visibleCount, binCount);
-
-            if (envelopeModeActive) {
-                const bins = createEnvelopeBins(binCount);
-                forEachVisibleSample((time, value) => {
-                    const xBin = getEnvelopeBinIndex(time, viewStart, viewEnd, binCount);
-                    accumulateEnvelopeValue(bins, xBin, value);
-                });
-
-                ctx.fillStyle = '#4fc3f733';
-                for (let px = 0; px < binCount; px++) {
-                    if (!Number.isFinite(bins.min[px]) || !Number.isFinite(bins.max[px])) {
-                        continue;
-                    }
-                    const y1 = yFromValue(bins.max[px]);
-                    const y2 = yFromValue(bins.min[px]);
-                    ctx.fillRect(plot.x + px, y1, 1, y2 - y1);
-                }
-
-                // Keep a centerline for readability in dense envelope mode.
-                ctx.strokeStyle = '#4fc3f7';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                let started = false;
-                for (let px = 0; px < binCount; px++) {
-                    const count = bins.counts[px];
-                    if (count === 0) {
-                        started = false;
-                        continue;
-                    }
-                    const x = plot.x + px;
-                    const y = yFromValue(bins.sum[px] / count);
-                    if (!started) {
-                        ctx.moveTo(x, y);
-                        started = true;
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                }
-                ctx.stroke();
-            } else {
-                ctx.strokeStyle = '#4fc3f7';
-                ctx.lineWidth = 1.25;
-                ctx.beginPath();
-                let started = false;
-                forEachVisibleSample((time, value) => {
-                    const x = xFromTime(time);
-                    const y = yFromValue(value);
-                    if (!started) {
-                        ctx.moveTo(x, y);
-                        started = true;
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                });
-                ctx.stroke();
-            }
-
-            const tStart = viewStartRef.current;
-            const tEnd = viewEndRef.current;
-            ctx.fillStyle = getComputedStyle(document.body).color || '#ccc';
-            ctx.font = '10px sans-serif';
-            ctx.textAlign = 'center';
-            for (let i = 0; i <= 5; i++) {
-                const ts = tStart + ((tEnd - tStart) * i) / 5;
-                const px = plot.x + (i / 5) * plot.w;
-                ctx.fillText(`${ts.toFixed(3)}s`, px, plot.y + plot.h + 16);
-            }
-
-            ctx.strokeStyle = 'rgba(128,128,128,0.3)';
-            ctx.strokeRect(plot.x, plot.y, plot.w, plot.h);
-
-            const cursorTime = cursorTimeRef.current;
-            if (cursorTime !== null && cursorTime >= tStart && cursorTime <= tEnd) {
-                const x = xFromTime(cursorTime);
-                ctx.strokeStyle = 'rgba(200,0,0,0.8)';
-                ctx.beginPath();
-                ctx.moveTo(x, plot.y);
-                ctx.lineTo(x, plot.y + plot.h);
-                ctx.stroke();
-            }
-
-            const playbackTime = playbackCursorTimeRef.current;
-            if (isPlaying && playbackTime !== null && playbackTime >= tStart && playbackTime <= tEnd) {
-                const x = xFromTime(playbackTime);
-                ctx.strokeStyle = 'rgba(64, 156, 255, 0.95)';
-                ctx.beginPath();
-                ctx.moveTo(x, plot.y);
-                ctx.lineTo(x, plot.y + plot.h);
-                ctx.stroke();
-            }
-        };
-
-        const getCanvasPoint = (clientX: number, clientY: number) => {
-            const rect = canvas.getBoundingClientRect();
-            return { x: clientX - rect.left, y: clientY - rect.top };
-        };
-
-        const isPointInPlot = (clientX: number, clientY: number) => {
-            const plot = getPlotArea(canvas, dpr, CHART_MARGIN);
-            const point = getCanvasPoint(clientX, clientY);
-            return point.x >= plot.x && point.x <= plot.x + plot.w && point.y >= plot.y && point.y <= plot.y + plot.h;
-        };
-
-        const updateCursorFromClientX = (clientX: number) => {
-            const plot = getPlotArea(canvas, dpr, CHART_MARGIN);
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = clientX - rect.left;
-            if (mouseX < plot.x || mouseX > plot.x + plot.w) {
-                return;
-            }
-
-            const ratio = (mouseX - plot.x) / plot.w;
-            const next = viewStartRef.current + ratio * (viewEndRef.current - viewStartRef.current);
-            cursorTimeRef.current = next;
-            broadcastMessage({
-                type: 'broadcast',
-                timeStamp: next,
-                fileName: filename,
-            });
-            drawRef.current();
-        };
-
-        let pointerMode: 'idle' | 'cursor' | 'pan' = 'idle';
-        let pointerDownX = 0;
-        let dragViewStart = 0;
-        let dragViewEnd = 0;
-
-        const onWheel = (e: WheelEvent) => {
-            e.preventDefault();
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const plot = getPlotArea(canvas, dpr, CHART_MARGIN);
-            const ratio = Math.max(0, Math.min(1, (mouseX - plot.x) / plot.w));
-            const range = viewEndRef.current - viewStartRef.current;
-            const factor = e.deltaY > 0 ? 1.2 : 0.8;
-            const newRange = Math.max(minViewSpan, Math.min(domainSpan, range * factor));
-            const center = viewStartRef.current + ratio * range;
-            const [start, end] = clampRange(center - ratio * newRange, center + (1 - ratio) * newRange);
-            setView({ start, end });
-        };
-
-        const onMouseDown = (e: MouseEvent) => {
-            const cursorHitTolerancePx = 10;
-            if (!isPointInPlot(e.clientX, e.clientY)) {
-                pointerMode = 'idle';
-                return;
-            }
-
-            pointerDownX = e.clientX;
-            dragViewStart = viewStartRef.current;
-            dragViewEnd = viewEndRef.current;
-
-            const cursorTime = cursorTimeRef.current;
-            if (cursorTime !== null) {
-                const plot = getPlotArea(canvas, dpr, CHART_MARGIN);
-                const cursorX = plot.x + ((cursorTime - dragViewStart) / Math.max(dragViewEnd - dragViewStart, 0.000001)) * plot.w;
-                const point = getCanvasPoint(e.clientX, e.clientY);
-                if (Math.abs(point.x - cursorX) <= cursorHitTolerancePx) {
-                    pointerMode = 'cursor';
-                    return;
-                }
-            }
-
-            pointerMode = 'pan';
-            setIsDragMode(true);
-        };
-
-        const onMouseMove = (e: MouseEvent) => {
-            if (pointerMode === 'cursor') {
-                updateCursorFromClientX(e.clientX);
-                return;
-            }
-
-            if (pointerMode === 'pan') {
-                const plot = getPlotArea(canvas, dpr, CHART_MARGIN);
-                const dx = e.clientX - pointerDownX;
-                const range = dragViewEnd - dragViewStart;
-                const shift = -(dx / plot.w) * range;
-                const [start, end] = clampRange(dragViewStart + shift, dragViewEnd + shift);
-                setView({ start, end });
-            }
-        };
-
-        const onMouseUp = (e: MouseEvent) => {
-            const activeMode = pointerMode;
-            pointerMode = 'idle';
-            if (activeMode === 'pan') {
-                setIsDragMode(false);
-            }
-            if (activeMode === 'cursor') {
-                updateCursorFromClientX(e.clientX);
-            }
-        };
-
-        const onMouseLeave = () => {
-            if (pointerMode === 'pan') {
-                setIsDragMode(false);
-            }
-            pointerMode = 'idle';
-        };
-
-        canvas.addEventListener('wheel', onWheel, { passive: false });
-        canvas.addEventListener('mousedown', onMouseDown);
-        canvas.addEventListener('mousemove', onMouseMove);
-        canvas.addEventListener('mouseup', onMouseUp);
-        canvas.addEventListener('mouseleave', onMouseLeave);
-        window.addEventListener('resize', resize);
-        window.addEventListener('message', handleMessage);
-
-        resize();
-
-        return () => {
-            canvas.removeEventListener('wheel', onWheel);
-            canvas.removeEventListener('mousedown', onMouseDown);
-            canvas.removeEventListener('mousemove', onMouseMove);
-            canvas.removeEventListener('mouseup', onMouseUp);
-            canvas.removeEventListener('mouseleave', onMouseLeave);
-            window.removeEventListener('resize', resize);
-            window.removeEventListener('message', handleMessage);
-        };
-    }, [
-        clampRange,
-        domainSpan,
-        filename,
-        isPlaying,
-        loadedFrames,
-        loadedRange.end,
-        loadedRange.start,
-        minViewSpan,
-        sampleRate,
-    ]);
-
-    const onSliderChange = (value: number[]) => {
-        if (value.length !== 2) {
-            return;
-        }
-
-        setIsDragMode(true);
-        const [start, end] = clampRange(value[0], value[1]);
-        setView({ start, end });
-    };
-
-    const onSliderAfterChange = () => {
-        setIsDragMode(false);
-    };
-
-    const onZoomIn = () => {
-        const center = (viewStartRef.current + viewEndRef.current) / 2;
-        const range = (viewEndRef.current - viewStartRef.current) * 0.5;
-        const [start, end] = clampRange(center - range / 2, center + range / 2);
-        setView({ start, end });
-    };
-
-    const onZoomOut = () => {
-        const center = (viewStartRef.current + viewEndRef.current) / 2;
-        const range = (viewEndRef.current - viewStartRef.current) * 2;
-        const [start, end] = clampRange(center - range / 2, center + range / 2);
-        setView({ start, end });
-    };
-
-    const onFit = () => {
-        setView({ start: domainStart, end: domainEnd });
-    };
-
-    const viewRange: [number, number] = [view.start, view.end];
-    const windowLengthSeconds = Math.max(0, view.end - view.start);
+    }, []);
 
     return (
         <div className="media-page">
-            <Row>
-                <Col flex="none">
-                    <h2>{filename ? filename : 'Audio Viewer'}</h2>
-                </Col>
-            </Row>
             <div className="info-bar">
                 <span>{sampleRate} Hz</span>
                 <span>{bitDepth}-bit</span>
@@ -847,8 +280,39 @@ export function AudioViewer({ state, filename }: AudioViewerProps) {
                 <span>{totalDurationSeconds.toFixed(2)}s</span>
                 <span>{totalRecords} records</span>
             </div>
-            <div style={canvasContainerStyle}>
-                <canvas ref={canvasRef} style={canvasStyle}></canvas>
+            <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+                <BaseChartViewer
+                    data={chartData}
+                    xField="x"
+                    yField="y"
+                    seriesField="channel"
+                    smooth={false}
+                    highlightedX={highlightedTime}
+                    xRange={viewRange}
+                    onCursorChange={onCursorChange}
+                    onZoomRangeChange={(range) => setViewRangeClamped(range[0], range[1])}
+                    theme={getIsDarkTheme() ? 'classicDark' : 'classic'}
+                    tooltip={{
+                        showMarkers: true,
+                        shared: true,
+                        crosshairs: {
+                            line: {
+                                style: {
+                                    stroke: 'rgba(150,150,150,0.45)',
+                                    lineWidth: 1,
+                                },
+                            },
+                        },
+                        formatter: (datum: any) => ({
+                            name: 'audio',
+                            value: typeof datum?.y === 'number' ? datum.y.toFixed(5) : String(datum?.y ?? ''),
+                        }),
+                        title: (value: any) => {
+                            const t = typeof value === 'number' ? value : Number(value.x);
+                            return Number.isFinite(t) ? `Time: ${t.toFixed(4)} s` : t;
+                        },
+                    }}
+                />
             </div>
             <Row className="controls" gutter={12}>
                 <Col flex="none">
@@ -860,32 +324,29 @@ export function AudioViewer({ state, filename }: AudioViewerProps) {
                             if (isPlaying) {
                                 stopPlayback();
                             } else {
-                                void playVisibleRange();
+                                void playLoadedSamples();
                             }
                         }}
-                        disabled={loadedFrames.length === 0}
+                        disabled={samples.length === 0}
                     ></Button>
                 </Col>
                 <Col flex="auto">
                     <Slider
                         range={{ draggableTrack: true }}
-                        min={domainStart}
-                        max={domainEnd}
+                        min={resolvedDomainStart}
+                        max={resolvedDomainEnd}
                         step={sliderStep}
                         value={viewRange}
                         onChange={onSliderChange}
                         onChangeComplete={onSliderAfterChange}
-                        style={{ flex: 1, margin: 0 }}
+                        style={sliderStyle}
                         tooltip={{ formatter: (v) => `${(v ?? 0).toFixed(3)}s` }}
-                        disabled={domainEnd <= domainStart}
+                        disabled={resolvedDomainEnd <= resolvedDomainStart}
                     />
-                </Col>
-                <Col flex="none" style={{ opacity: 0.75, fontSize: '80%', whiteSpace: 'nowrap' }}>
-                    Window: {windowLengthSeconds.toFixed(3)} s
                 </Col>
                 <Col flex="none">
                     <Button icon={<ZoomInOutlined />} type="text" title="Zoom In" onClick={onZoomIn}></Button>
-                    <Button icon={<ZoomOutOutlined />} type="text" title="Zoom Out" onClick={onZoomOut} disabled={windowLengthSeconds >= domainSpan}></Button>
+                    <Button icon={<ZoomOutOutlined />} type="text" title="Zoom Out" onClick={onZoomOut} disabled={domainSpan === (viewRange[1] - viewRange[0])}></Button>
                     <Button icon={<ExpandOutlined />} type="text" title="Fit to Window" onClick={onFit}></Button>
                 </Col>
             </Row>
