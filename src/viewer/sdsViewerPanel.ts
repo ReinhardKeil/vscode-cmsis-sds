@@ -41,6 +41,7 @@ import {
     registerViewerWebview,
     resolveMetadataPathForSdsFile,
 } from './viewerPanelUtils';
+import type { SdsioConfigManager } from '../controller/sdsioConfigManager';
 
 type VisibleRangeRequest = {
     command: 'requestVisibleRangeData';
@@ -72,6 +73,7 @@ export class SdsViewerPanel {
     public static createOrShow(
         extensionUri: vscode.Uri,
         sdsFilePath: string,
+        configManager?: SdsioConfigManager,
         metadataPath?: string
     ): SdsViewerPanel {
         const column = vscode.window.activeTextEditor
@@ -96,7 +98,7 @@ export class SdsViewerPanel {
             }
         );
 
-        const viewer = new SdsViewerPanel(panel, extensionUri, sdsFilePath, metadataPath);
+        const viewer = new SdsViewerPanel(panel, extensionUri, sdsFilePath, configManager, metadataPath);
         SdsViewerPanel.panels.set(sdsFilePath, viewer);
         return viewer;
     }
@@ -105,12 +107,13 @@ export class SdsViewerPanel {
         panel: vscode.WebviewPanel,
         extensionUri: vscode.Uri,
         sdsFilePath: string,
+        configManager?: SdsioConfigManager,
         metadataPath?: string
     ) {
         this.panel = panel;
         this.extensionUri = extensionUri;
         this.sdsFilePath = sdsFilePath;
-        this.metadataPath = metadataPath;
+        this.metadataPath = metadataPath || resolveMetadataPathForSdsFile(sdsFilePath, SDS_METADATA_EXTENSION, configManager);
         this.webview = panel.webview;
         this.disposables.push(registerViewerWebview(this.webview));
 
@@ -163,11 +166,6 @@ export class SdsViewerPanel {
     }
 
     private update(): void {
-        // Find metadata file if not specified
-        if (!this.metadataPath) {
-            this.metadataPath = resolveMetadataPathForSdsFile(this.sdsFilePath, SDS_METADATA_EXTENSION);
-        }
-
         try {
             const parsed = parseSdsFile(this.sdsFilePath);
 

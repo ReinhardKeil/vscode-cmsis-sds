@@ -348,7 +348,7 @@ export function activate(context: vscode.ExtensionContext) {
                     if (!fp) { return; }
                     filePath = fp;
                 }
-                SdsViewerPanel.createOrShow(context.extensionUri, filePath);
+                SdsViewerPanel.createOrShow(context.extensionUri, filePath, configManager);
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to open viewer: ${err instanceof Error ? err.message : String(err)}`);
             }
@@ -561,7 +561,7 @@ export function activate(context: vscode.ExtensionContext) {
                     if (!fp) { return; }
                     filePath = fp;
                 }
-                SdsMediaViewerPanel.createOrShow(context.extensionUri, filePath);
+                SdsMediaViewerPanel.createOrShow(context.extensionUri, filePath, configManager);
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to open media viewer: ${err instanceof Error ? err.message : String(err)}`);
             }
@@ -588,7 +588,7 @@ export function activate(context: vscode.ExtensionContext) {
                     matchOnDescription: true,
                 });
                 if (pick) {
-                    SdsViewerPanel.createOrShow(context.extensionUri, pick.uri.fsPath);
+                    SdsViewerPanel.createOrShow(context.extensionUri, pick.uri.fsPath, configManager);
                 }
             } catch (err) {
                 vscode.window.showErrorMessage(`Quick open failed: ${err instanceof Error ? err.message : String(err)}`);
