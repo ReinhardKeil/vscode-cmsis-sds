@@ -54,6 +54,12 @@
                 "icon": "$(preview)"
             },
             {
+                "command": "arm-sds.sdsCheck",
+                "title": "Check Data File",
+                "category": "SDS Tools",
+                "icon": "$(preview)"
+            },
+            {
                 "command": "arm-sds.exportCsv",
                 "title": "Export SDS to CSV",
                 "category": "SDS Tools",
@@ -262,6 +268,11 @@
                 },
                 {
                     "command": "arm-sds.createMetadata",
+                    "when": "view == sdsExplorer && viewItem == sdsFile",
+                    "group": "1_view"
+                },
+                {
+                    "command": "arm-sds.sdsCheck",
                     "when": "view == sdsExplorer && viewItem == sdsFile",
                     "group": "1_view"
                 },

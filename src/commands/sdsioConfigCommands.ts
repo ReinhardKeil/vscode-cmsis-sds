@@ -157,4 +157,5 @@ export function registerSdsioConfigCommands(args: RegisterSdsioConfigCommandsArg
             await vscode.window.showTextDocument(doc);
         })
     );
+
 }

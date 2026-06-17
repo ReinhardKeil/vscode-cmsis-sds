@@ -92,6 +92,28 @@ export function registerSdsFileCommands(args: RegisterSdsFileCommandsArgs): void
         })
     );
 
+    // Open group metadata
+    context.subscriptions.push(
+        vscode.commands.registerCommand('arm-sds.openGroupMetadata', async (arg?: SdsTreeItem | vscode.Uri | string) => {
+            try {
+                const metadataPath = resolveSdsPath(arg);
+                if (!metadataPath) {
+                    vscode.window.showErrorMessage('No metadata file found for this SDS group.');
+                    return;
+                }
+                if (!fs.existsSync(metadataPath)) {
+                    vscode.window.showErrorMessage(`Metadata file not found: ${metadataPath}`);
+                    return;
+                }
+
+                const doc = await vscode.workspace.openTextDocument(metadataPath);
+                await vscode.window.showTextDocument(doc);
+            } catch (err) {
+                vscode.window.showErrorMessage(`Failed to open metadata: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        })
+    );
+
     // Export CSV
     context.subscriptions.push(
         vscode.commands.registerCommand('arm-sds.exportCsv', async (arg?: SdsTreeItem | vscode.Uri | string) => {
@@ -177,6 +199,45 @@ export function registerSdsFileCommands(args: RegisterSdsFileCommandsArgs): void
             }
         })
     );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('arm-sds.sdsCheck', (arg?: SdsTreeItem | vscode.Uri | string) => {
+            if (!arg) {
+                void vscode.window.showErrorMessage('No SDS file selected for sds-check.');
+                return;
+            }
+            const filePath = arg instanceof SdsTreeItem ? arg.filePath : (arg instanceof vscode.Uri ? arg.fsPath : arg);
+            if (!filePath || !fs.existsSync(filePath)) {
+                void vscode.window.showErrorMessage(`Selected SDS file does not exist: ${filePath}`);
+                return;
+            }
+            const cmsisPackRoot = process.env.CMSIS_PACK_ROOT;
+            if (!cmsisPackRoot) {
+                void vscode.window.showErrorMessage('CMSIS_PACK_ROOT environment variable is not set. Please set it to the CMSIS Pack root directory.');
+                return;
+            }
+
+            const sdsPackRoot = path.join(cmsisPackRoot, 'ARM', 'SDS');
+            if (!fs.existsSync(sdsPackRoot)) {
+                void vscode.window.showErrorMessage(`SDS Pack root directory does not exist: ${sdsPackRoot}`);
+                return;
+            }
+            const recentVersionFolder = fs.readdirSync(sdsPackRoot).sort().pop();
+            if (!recentVersionFolder) {
+                void vscode.window.showErrorMessage(`No version folders found in SDS Pack root: ${sdsPackRoot}`);
+                return;
+            }
+            const sdsCheck = path.join(sdsPackRoot, recentVersionFolder, 'utilities', 'sds-check.py');
+            if (!fs.existsSync(sdsCheck)) {
+                void vscode.window.showErrorMessage(`sds-check.py not found in SDS Pack: ${sdsCheck}`);
+                return;
+            }
+            const terminal = vscode.window.createTerminal('SDS Check');
+            terminal.show();
+            terminal.sendText(`python "${sdsCheck}" -i "${filePath}"`);
+        })
+    );
+
 }
 
 function resolveSdsPath(arg?: SdsTreeItem | vscode.Uri | string): string | undefined {
