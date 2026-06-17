@@ -172,7 +172,7 @@
             },
             {
                 "command": "arm-sds.openGroupMetadata",
-                "title": "Open Stream Metadata",
+                "title": "Open Metadata Information",
                 "category": "SDS Tools",
                 "icon": "$(edit)"
             }

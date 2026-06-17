@@ -228,7 +228,7 @@ describe('activate integration wiring', () => {
         ]);
     });
 
-    it('registers disconnect command in activation flow', async () => {
+    it('registers contributed commands in activation flow', async () => {
         const extension = await import('../../src/extension');
         const context = {
             subscriptions: [] as Array<{ dispose?: () => void }>,
@@ -240,6 +240,14 @@ describe('activate integration wiring', () => {
 
         expect(registerCommandMock).toHaveBeenCalledWith(
             'arm-sds.sdsinterface.disconnect',
+            expect.any(Function),
+        );
+        expect(registerCommandMock).toHaveBeenCalledWith(
+            'arm-sds.sds.closeConfig',
+            expect.any(Function),
+        );
+        expect(registerCommandMock).toHaveBeenCalledWith(
+            'arm-sds.openGroupMetadata',
             expect.any(Function),
         );
     });

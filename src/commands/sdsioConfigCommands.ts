@@ -146,6 +146,12 @@ export function registerSdsioConfigCommands(args: RegisterSdsioConfigCommandsArg
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('arm-sds.sds.closeConfig', async () => {
+            await setActiveConfig(undefined, true);
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('arm-sds.sds.editConfig', async () => {
             const activeConfigPath = configManager.getConfigFile() ?? resolveConfigPathFromSettings();
             if (!activeConfigPath || !fs.existsSync(activeConfigPath)) {
