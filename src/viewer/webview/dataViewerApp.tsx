@@ -72,6 +72,7 @@ function DataViewerApp() {
     const initial = getInitialState<InitialState>({});
     const [activeChannels, setActiveChannels] = useState(() => new Set(initial.channelNames));
     const [samples, setSamples] = useState<Sample[]>(() => initial.samples ?? []);
+    const [currentBlock, setCurrentBlock] = useState<number | null>(null);
     const channelNames = useMemo(() => initial.channelNames ?? [], [initial.channelNames]);
     const stats = initial.stats ?? ({} as SdsFileStats);
     const metadata = initial.metadata ?? null;
@@ -270,8 +271,9 @@ function DataViewerApp() {
         return reduced.sort((a, b) => a.x - b.x);
     }, [activeChannels, channelNames, decimationPreset, isDragging, samples, viewRange, viewWidth]);
 
-    const onCursorChange = useCallback((time: number) => {
+    const onCursorChange = useCallback((time: number, block: number | null) => {
         setHighlightedTime(time);
+        setCurrentBlock(block);
         broadcastMessage({
             type: 'broadcast',
             timeStamp: time,
@@ -279,45 +281,13 @@ function DataViewerApp() {
         });
     }, [filename]);
 
-    const sampleBlockFromTime = useCallback((time: number): number => {
-        if (stats.dataRate <= 0) {
-            return 0;
-        }
-        return Math.floor(time * stats.dataRate / (stats.avgBlockSize ?? 1));
-    }, [stats.dataRate, stats.avgBlockSize]);
-
     const windowLength = Math.max(0, viewRange[1] - viewRange[0]);
 
     return (
         <div style={{ background: 'var(--vscode-editor-background)', color: 'var(--vscode-editor-foreground)', fontFamily: 'var(--vscode-font-family)', fontSize: 13, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100vh' }}>
-            {/* <Row>
-                <Col span={14}></Col>
-                <Col span={10} style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                        <Space.Compact block>
-                            {channelNames.map((name, i) => {
-                                const cColor = colors[i % colors.length];
-                                const active = activeChannels.has(name);
-                                return (
-                                    <Button
-                                        key={name}
-                                        size='small'
-                                        style={{ borderColor: cColor, backgroundColor: active ? cColor : 'transparent' }}
-                                        ghost
-                                        onClick={() => toggleChannel(name)}
-                                    >
-                                        {name}
-                                    </Button>
-                                );
-                            })}
-                        </Space.Compact>
-                        <Button type='text' title='Export CSV' onClick={onExport}>Export</Button>
-                    </div>
-                </Col>
-            </Row> */}
             <Row gutter={8} className='info-bar'>
                 <Col style={statsTitleStyle}>Block</Col>
-                <Col style={statsValueStyle}>{sampleBlockFromTime(highlightedTime ?? 0) + 1} of {stats.totalRecords}</Col>
+                <Col style={statsValueStyle}>{currentBlock ?? 0} of {stats.totalRecords}</Col>
                 <Col style={statsTitleStyle}>Size</Col>
                 <Col style={statsValueStyle}>{stats.avgBlockSize ?? 0} B</Col>
                 <Col style={statsTitleStyle}>Time</Col>
@@ -327,19 +297,6 @@ function DataViewerApp() {
                 <Col flex="auto" style={{ textAlign: 'right' }}>
                     <Button type='text' icon={<ExportOutlined />} size='small' title='Export CSV' onClick={onExport}>Export</Button>
                 </Col>
-
-                {/* <Col style={statsTitleStyle}>Duration</Col>
-                <Col style={statsValueStyle}>{(stats.recordingTimeSeconds ?? 0).toFixed(3)} s</Col>
-                <Col style={statsTitleStyle}>Data Rate</Col>
-                <Col style={statsValueStyle}>{stats.dataRate ?? 0} B/s</Col>
-                {metadata && (
-                    <>
-                        <Col style={statsTitleStyle}>Frequency</Col>
-                        <Col style={statsValueStyle}>{metadata.sds?.frequency} Hz</Col>
-                        <Col style={statsTitleStyle}>Stream</Col>
-                        <Col style={statsValueStyle}>{metadata.sds?.name}</Col>
-                    </>
-                )} */}
             </Row>
             <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
                 <BaseChartViewer

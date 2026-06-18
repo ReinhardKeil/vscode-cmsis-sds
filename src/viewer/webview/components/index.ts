@@ -15,5 +15,4 @@
  */
 
 // This file exports the new AntD-based chart viewer components for migration
-export * from './dataViewer';
 export * from './baseChartViewer';

@@ -35,7 +35,7 @@ export interface BaseChartViewerProps {
     xRange?: [number, number];
     totalBlocks?: number;
     blockIndexFromX?: (x: number) => number | null;
-    onCursorChange?: (x: number) => void;
+    onCursorChange?: (x: number, block: number | null) => void;
     onZoomRangeChange?: (range: [number, number]) => void;
     [key: string]: any;
 }
@@ -339,10 +339,11 @@ export const BaseChartViewer: React.FC<BaseChartViewerProps> = ({
         if (onCursorChange && resolveXRange && canvasEl) {
             const emitCursor = (event: MouseEvent) => {
                 const time = cursorTimeFromClientPoint(event.clientX, event.clientY);
+                const time2 = cursorTimeFromClientPoint(event.clientX - 20, event.clientY);
                 if (time === null) {
                     return;
                 }
-                onCursorChangeRef.current?.(time);
+                onCursorChangeRef.current?.(time, computeBlockIndexFromX(time2));
             };
 
             const pointerMoveEvent = `plot:${ChartEvent.POINTER_MOVE}`;
